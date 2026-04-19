@@ -3,6 +3,7 @@ import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Solicitudes from './pages/Solicitudes'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-5">
@@ -26,7 +27,7 @@ export default function App() {
           <Route path="/egm"         element={<Placeholder title="Usuarios EGM" />} />
           <Route path="/usuarios"    element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Usuarios" /></ProtectedRoute>} />
           <Route path="/historial"   element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Historial" /></ProtectedRoute>} />
-          <Route path="/solicitudes" element={<Placeholder title="Solicitudes" />} />
+          <Route path="/solicitudes" element={<Solicitudes />} />
           <Route path="*"            element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

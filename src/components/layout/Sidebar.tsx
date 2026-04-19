@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { useDB } from '../../store/db'
+import { useSolicitudes } from '../../store/solicitudes'
 import { useNotifs } from '../../store/notifs'
 
 const IconDashboard = () => (
@@ -64,6 +65,13 @@ const IconPWA = () => (
   </svg>
 )
 
+const IconSolicitudes = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+  </svg>
+)
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const user = useAuth(s => s.user)
   const unread = useNotifs(s => s.unreadCount)
@@ -71,8 +79,10 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const count = unread(rol as any)
   const { terminales } = useDB()
   const offlineCount = terminales.filter(t => t.estado === 'EN PRODUCCION' && !t.wam_online).length
+  const { pendientes: solPend } = useSolicitudes()
+  const solicPendCount = solPend()
 
-  const navSections: Array<{label:string; items:Array<{to:string;label:string;icon:React.ReactNode;roles?:string[];soon?:boolean;badgeOffline?:boolean}>}> = [
+  const navSections: Array<{label:string; items:Array<{to:string;label:string;icon:React.ReactNode;roles?:string[];soon?:boolean;badgeOffline?:boolean;badgeSolicitudes?:boolean}>}> = [
     {
       label: 'PRINCIPAL',
       items: [
@@ -94,6 +104,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
       items: [
         { to: '/usuarios', label: 'Usuarios', icon: <IconUsers />, roles: ['ADMINISTRADOR','DIRECTIVO'] },
         { to: '/historial', label: 'Historial', icon: <IconHistory />, roles: ['ADMINISTRADOR','DIRECTIVO'] },
+        { to: '/solicitudes', label: 'Solicitudes', icon: <IconSolicitudes />, roles: ['ADMINISTRADOR','DIRECTIVO','FRANQUICIADO'], badgeSolicitudes: true },
       ]
     },
     {
@@ -153,6 +164,9 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
                       )}
                       {(item as any).badgeOffline && offlineCount > 0 && (
                         <span style={{ background:'#f72564', color:'#fff', fontSize:9, borderRadius:10, padding:'1px 6px', fontFamily:'monospace', fontWeight:700 }}>{offlineCount}</span>
+                      )}
+                      {(item as any).badgeSolicitudes && solicPendCount > 0 && !collapsed && (
+                        <span style={{ marginLeft:'auto', background:'#f7931a', color:'#fff', fontSize:9, borderRadius:10, padding:'1px 6px', fontFamily:'monospace', fontWeight:700 }}>{solicPendCount}</span>
                       )}
                     </>
                   )}

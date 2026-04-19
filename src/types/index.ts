@@ -157,3 +157,27 @@ export interface DB {
   usuariosSistema: Usuario[]
   accesosWAM: AccesoWAM[]
 }
+// ── Solicitud ─────────────────────────────────────────
+export type TipoSolicitud = 'NUEVO_LOCAL' | 'NUEVA_TERMINAL' | 'NUEVA_EMPRESA'
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+
+export interface Solicitud {
+  id?: string
+  _id?: string
+  tipo: TipoSolicitud
+  empresa: string
+  empresa_id?: string
+  encargado: string
+  correo: string
+  direccion: string
+  lat?: number
+  lng?: number
+  cant_terminales: number
+  notas?: string
+  estado: EstadoSolicitud
+  solicitante_id?: string
+  solicitante_nombre?: string
+  motivo_rechazo?: string
+  created_at?: string
+  updated_at?: string
+}

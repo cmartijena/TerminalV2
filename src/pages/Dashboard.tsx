@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useAuth } from '../store/auth'
@@ -6,6 +6,7 @@ import { useDB } from '../store/db'
 import { useNotifs } from '../store/notifs'
 import { WAM_API_URL, WAM_API_SECRET } from '../lib/config'
 import AnalyticsWAM from '../components/dashboard/AnalyticsWAM'
+import { useSolicitudes } from '../store/solicitudes'
 import type { Notificacion } from '../types'
 
 // ── Leaflet loader ────────────────────────────────────
@@ -313,6 +314,7 @@ export default function Dashboard() {
   const user                              = useAuth(s => s.user)
   const { terminales, empresas, agencias, loaded, loadAll } = useDB()
   const { forRole, markRead }             = useNotifs()
+  const { pendientes: solPend, loadAll: loadSol } = useSolicitudes()
   const navigate                          = useNavigate()
 
   const [wam, setWam]       = useState({ in: 0, out: 0, bal: 0, regs: 0 })
@@ -342,6 +344,7 @@ export default function Dashboard() {
   // Cargar datos si no están cargados (ej: recarga de página)
   useEffect(() => {
     if (!loaded && !terminales.length) loadAll()
+    loadSol()
   }, [])
 
   useEffect(() => {
@@ -430,169 +433,57 @@ export default function Dashboard() {
       {/* ── ROW 2: Area + Mapa + [Radiales+Analytics] ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 270px', gap: 11, marginBottom: 11 }}>
 
-        {/* Panel Opción D: tabs Empresas / Sedes / Terminales */}
+        {/* Panel Opción A — 4 KPIs operacionales */}
         {(() => {
-          const [tabD, setTabD] = React.useState<'empresas'|'sedes'|'terminales'>('empresas')
-          const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
-          const sedesPend = agencias.filter(a => a.estado === 'PENDIENTE')
-          const [filtroEmpD, setFiltroEmpD] = React.useState('todas')
-
-          const termsFiltD = filtroEmpD === 'todas'
-            ? topTerms
-            : topTerms.filter(t => t.empresa === filtroEmpD)
-
+          const solicitCount = solPend()
+          const sedesPend    = agencias.filter(a => a.estado === 'PENDIENTE')
+          const kpis = [
+            { label: 'EMPRESAS',   value: loaded ? empresas.length : 0,   color: '#00e5a0', sub: `${empresas.length} operadores`, icon: <path d="M12 22V12M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/> },
+            { label: 'SEDES',      value: loaded ? agencias.length : 0,    color: '#4f8ef7', sub: `${agencias.filter(a=>a.estado==='EN PRODUCCION').length} en producción`, icon: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></> },
+            { label: 'TERMINALES', value: loaded ? totalTerms : 0,         color: '#7c5cfc', sub: `${enProd} activas · ${totalTerms-enProd} N/D`, icon: <><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></> },
+            { label: 'SOLICITUDES',value: solicitCount,                    color: solicitCount > 0 ? '#f7931a' : '#3d4f73', sub: solicitCount > 0 ? `${solicitCount} pendiente${solicitCount>1?'s':''}` : 'sin pendientes', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></> },
+          ]
           return (
             <div className="card card-glow-blue" style={{ display: 'flex', flexDirection: 'column' }}>
-              {/* Tabs */}
-              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-                {([
-                  { id: 'empresas',   label: `Empresas (${empresas.length})` },
-                  { id: 'sedes',      label: `Sedes (${agencias.length})` },
-                  { id: 'terminales', label: `Terminales (${totalTerms})` },
-                ] as const).map(tab => (
-                  <button key={tab.id} onClick={() => setTabD(tab.id)} style={{
-                    padding: '4px 11px', borderRadius: 7, fontSize: 9, fontFamily: 'monospace',
-                    cursor: 'pointer', border: '1px solid', fontWeight: tabD === tab.id ? 600 : 400,
-                    background: tabD === tab.id ? 'rgba(0,229,160,0.1)' : 'transparent',
-                    borderColor: tabD === tab.id ? 'rgba(0,229,160,0.35)' : '#1e2d4a',
-                    color: tabD === tab.id ? '#00e5a0' : '#7b8db0',
-                    transition: 'all .15s',
-                  }}>{tab.label}</button>
+              <p style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Resumen operacional</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1 }}>
+                {kpis.map((k, i) => (
+                  <div key={i} style={{ background: '#141d35', border: `1px solid ${i===3 && solicitCount>0 ? 'rgba(247,147,26,0.3)' : '#1e2d4a'}`, borderRadius: 9, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1 }}>{k.label}</span>
+                      <div style={{ width: 22, height: 22, borderRadius: 6, background: `${k.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={k.color} strokeWidth="2" strokeLinecap="round">{k.icon}</svg>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</div>
+                    <div style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{k.sub}</div>
+                  </div>
                 ))}
               </div>
-
-              {/* ── TAB: EMPRESAS ── */}
-              {tabD === 'empresas' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
-                  {!loaded ? (
-                    <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '16px 0' }}>Cargando...</p>
-                  ) : empresas.map((emp, i) => {
-                    const color   = EMP_COLS[i % EMP_COLS.length]
-                    const total   = terminales.filter(t => t.empresa === emp.nombre).length
-                    const activas = terminales.filter(t => t.empresa === emp.nombre && t.estado === 'ACTIVO').length
-                    const pct     = total > 0 ? Math.round((activas / total) * 100) : 0
-                    const sedes   = agencias.filter(a => a.empresa === emp.nombre).length
-                    const sedesPr = agencias.filter(a => a.empresa === emp.nombre && a.estado === 'EN PRODUCCION').length
-                    return (
-                      <div key={emp._id} style={{ background: '#141d35', border: `1px solid ${color}25`, borderRadius: 9, padding: '8px 11px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                          <div style={{ width: 7, height: 7, borderRadius: 2, background: color, flexShrink: 0 }} />
-                          <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', flex: 1 }}>{emp.nombre}</span>
-                          <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{sedes} sedes</span>
-                          <span style={{ fontSize: 10, color, fontFamily: 'monospace', fontWeight: 700 }}>{activas}</span>
-                          <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace' }}>/{total}</span>
-                          <span style={{ fontSize: 8, background: `${color}12`, color, border: `1px solid ${color}30`, padding: '1px 6px', borderRadius: 7, fontFamily: 'monospace' }}>{pct}%</span>
-                        </div>
-                        <div style={{ height: 4, background: '#1e2d4a', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width .8s' }} />
-                        </div>
-                        {sedesPr < sedes && (
-                          <div style={{ fontSize: 8, color: '#f7931a', fontFamily: 'monospace', marginTop: 4 }}>
-                            ⚠ {sedes - sedesPr} sede{sedes - sedesPr > 1 ? 's' : ''} pendiente{sedes - sedesPr > 1 ? 's' : ''}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {/* Footer resumen */}
-                  <div style={{ marginTop: 'auto', paddingTop: 7, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{agencias.length} sedes · {empresas.length} operadores</span>
-                    <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>{enProd} terminales activas</span>
-                  </div>
-                </div>
-              )}
-
-              {/* ── TAB: SEDES ── */}
-              {tabD === 'sedes' && (
-                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 230, overflowY: 'auto', paddingRight: 2 }}>
-                    {!loaded ? (
-                      <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '16px 0' }}>Cargando...</p>
-                    ) : [...agencias].sort((a, b) => {
-                        if (a.estado === 'EN PRODUCCION' && b.estado !== 'EN PRODUCCION') return -1
-                        if (b.estado === 'EN PRODUCCION' && a.estado !== 'EN PRODUCCION') return 1
-                        return (a.empresa || '').localeCompare(b.empresa || '')
-                      }).map((ag) => {
-                        const empIdx = empresas.findIndex(e => e.nombre === ag.empresa)
-                        const color  = EMP_COLS[empIdx >= 0 ? empIdx % EMP_COLS.length : 0]
-                        const tCount = terminales.filter(t => t.id_sub === ag.id_sub).length
-                        const tAct   = terminales.filter(t => t.id_sub === ag.id_sub && t.estado === 'ACTIVO').length
-                        const isProd = ag.estado === 'EN PRODUCCION'
-                        return (
-                          <div key={ag._id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7,
-                            background: '#141d35', border: `1px solid ${isProd ? '#1e2d4a' : 'rgba(247,147,26,0.25)'}`, flexShrink: 0 }}>
-                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: isProd ? color : '#f7931a', flexShrink: 0 }} />
-                            <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ag.subagencia}</span>
-                            <span style={{ fontSize: 8, color: '#3d4f73', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ag.sucursal}</span>
-                            <span style={{ fontSize: 8, color, fontFamily: 'monospace' }}>{tAct}/{tCount}</span>
-                            <span style={{ fontSize: 7, color: isProd ? '#00e5a0' : '#f7931a', fontFamily: 'monospace', flexShrink: 0 }}>
-                              {isProd ? 'PROD' : 'PEND'}
-                            </span>
-                          </div>
-                        )
-                      })}
-                  </div>
-                  {/* Alertas pendientes */}
-                  {sedesPend.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      {sedesPend.map(ag => (
-                        <div key={ag._id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px',
-                          background: 'rgba(247,147,26,0.06)', border: '1px solid rgba(247,147,26,0.2)', borderRadius: 7, marginBottom: 4 }}>
-                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f7931a', flexShrink: 0 }} />
-                          <span style={{ fontSize: 9, color: '#f7931a', fontFamily: 'monospace', flex: 1 }}>{ag.subagencia} — {ag.empresa}</span>
-                          <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>PENDIENTE</span>
-                        </div>
-                      ))}
+              {/* Alertas */}
+              {(sedesPend.length > 0 || solicitCount > 0) && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {sedesPend.map(ag => (
+                    <div key={ag._id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px', background: 'rgba(247,147,26,0.06)', border: '1px solid rgba(247,147,26,0.2)', borderRadius: 7 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f7931a', flexShrink: 0 }} />
+                      <span style={{ fontSize: 9, color: '#f7931a', fontFamily: 'monospace', flex: 1 }}>Sede pendiente: {ag.subagencia}</span>
+                      <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{ag.empresa}</span>
+                    </div>
+                  ))}
+                  {solicitCount > 0 && (
+                    <div onClick={() => navigate('/solicitudes')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px', background: 'rgba(247,147,26,0.06)', border: '1px solid rgba(247,147,26,0.2)', borderRadius: 7, cursor: 'pointer' }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f7931a', flexShrink: 0 }} />
+                      <span style={{ fontSize: 9, color: '#f7931a', fontFamily: 'monospace', flex: 1 }}>{solicitCount} solicitud{solicitCount>1?'es':''} pendiente{solicitCount>1?'s':''} de revisión</span>
+                      <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace' }}>Revisar →</span>
                     </div>
                   )}
                 </div>
               )}
-
-              {/* ── TAB: TERMINALES ── */}
-              {tabD === 'terminales' && (
-                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  {/* Filtros empresa */}
-                  <div style={{ display: 'flex', gap: 4, marginBottom: 7, flexWrap: 'wrap' }}>
-                    <button onClick={() => setFiltroEmpD('todas')} style={{
-                      padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
-                      background: filtroEmpD === 'todas' ? 'rgba(0,229,160,0.1)' : 'transparent',
-                      borderColor: filtroEmpD === 'todas' ? 'rgba(0,229,160,0.35)' : '#1e2d4a',
-                      color: filtroEmpD === 'todas' ? '#00e5a0' : '#7b8db0',
-                    }}>Todas ({totalTerms})</button>
-                    {empresas.slice(0, 4).map(emp => (
-                      <button key={emp._id} onClick={() => setFiltroEmpD(emp.nombre)} style={{
-                        padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
-                        background: filtroEmpD === emp.nombre ? 'rgba(79,142,247,0.1)' : 'transparent',
-                        borderColor: filtroEmpD === emp.nombre ? 'rgba(79,142,247,0.35)' : '#1e2d4a',
-                        color: filtroEmpD === emp.nombre ? '#4f8ef7' : '#7b8db0',
-                      }}>{emp.nombre.split(' ')[0]} ({terminales.filter(t => t.empresa === emp.nombre).length})</button>
-                    ))}
-                  </div>
-                  {/* Lista con scroll */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 190, overflowY: 'auto', paddingRight: 2 }}>
-                    {!loaded ? (
-                      <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
-                    ) : termsFiltD.map(t => {
-                      const isAct = t.estado === 'ACTIVO'
-                      return (
-                        <div key={t._id} onClick={() => navigate('/terminales')}
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7,
-                            background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer', flexShrink: 0 }}>
-                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: isAct ? '#00e5a0' : '#f72564', flexShrink: 0 }} />
-                          <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', minWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
-                          <span style={{ fontSize: 8, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                          <span style={{ fontSize: 7, color: isAct ? '#00e5a0' : '#f72564', fontFamily: 'monospace', flexShrink: 0 }}>
-                            {isAct ? 'ACT' : 'N/D'}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d4a', fontSize: 8, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center' }}>
-                    {termsFiltD.length} terminales · {termsFiltD.filter(t => t.estado === 'ACTIVO').length} activas
-                  </div>
-                </div>
-              )}
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>Supabase · tiempo real</span>
+                <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>{loaded ? 'Cargado' : 'Cargando...'}</span>
+              </div>
             </div>
           )
         })()}

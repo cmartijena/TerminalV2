@@ -108,7 +108,7 @@ function getCoords(ag: any): [number, number] {
   return [-12.0464 + dx, -77.0428 + dy]
 }
 
-// ── Mapa component ────────────────────────────────────
+// ── Mapa component — Estilo C: Positron invertido + pins con número ─────
 function MapaAgencias({ agencias, empresas, terminales }: any) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -119,7 +119,7 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
     loadLeaflet().then(() => {
       const L = (window as any).L
 
-      // Popup style
+      // Estilos popup y zoom dark
       if (!document.getElementById('tlos-map-css')) {
         const st = document.createElement('style'); st.id = 'tlos-map-css'
         st.textContent = [
@@ -128,20 +128,33 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
           '.leaflet-popup-content{margin:0!important}',
           '.leaflet-popup-tip{background:#0f1629!important}',
           '.leaflet-popup-close-button{color:#7b8db0!important;top:6px!important;right:8px!important}',
+          '.leaflet-control-zoom a{background:#0f1629!important;color:#7b8db0!important;border-color:#1e2d4a!important}',
+          '.leaflet-control-zoom a:hover{background:#141d35!important;color:#e8eeff!important}',
         ].join('')
         document.head.appendChild(st)
       }
 
-      // Destroy old map
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
 
       const map = L.map(divRef.current, {
-        center: [-12.0464, -77.0428], zoom: 11,
+        center: [-12.0464, -77.0428], zoom: 12,
         zoomControl: false, attributionControl: false,
       })
       mapRef.current = map
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
+      // Tile Positron (minimalista) con CSS filter para invertir a negro
+      const tileLayer = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+        { maxZoom: 19, subdomains: 'abcd' }
+      ).addTo(map)
+
+      // Aplicar filtro CSS al tile layer para invertir colores
+      tileLayer.on('tileload', function(e: any) {
+        if (e.tile) {
+          e.tile.style.filter = 'invert(90%) hue-rotate(200deg) brightness(0.85) saturate(0.5)'
+        }
+      })
+
       L.control.zoom({ position: 'bottomright' }).addTo(map)
 
       agencias.forEach((ag: any) => {
@@ -149,24 +162,41 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
         const ei     = empresas.findIndex((e: any) => e.nombre === ag.empresa)
         const color  = EMP_COLORS[ei >= 0 ? ei % EMP_COLORS.length : 0]
         const terms  = terminales.filter((t: any) => t.id_sub === ag.id_sub)
+        const count  = terms.length
+        const size   = count > 9 ? 28 : 24
+
+        // Pin circular con número de terminales adentro
+        const isLight = ['#00e5a0','#00d4ff'].includes(color)
+        const textColor = isLight ? '#0a0e1a' : '#ffffff'
 
         const icon = L.divIcon({
           className: '',
-          html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid ${color}50;box-shadow:0 0 8px ${color}70;cursor:pointer"></div>`,
-          iconSize: [10, 10], iconAnchor: [5, 5],
+          html: `<div style="
+            width:${size}px;height:${size}px;border-radius:50%;
+            background:${color};
+            border:2px solid rgba(255,255,255,0.2);
+            display:flex;align-items:center;justify-content:center;
+            font-size:${count > 9 ? 10 : 11}px;font-weight:700;
+            color:${textColor};
+            font-family:monospace;
+            cursor:pointer;
+            box-shadow:0 2px 8px rgba(0,0,0,0.5);
+          ">${count}</div>`,
+          iconSize:   [size, size],
+          iconAnchor: [size/2, size/2],
         })
 
         L.marker(coords, { icon }).addTo(map).bindPopup(`
-          <div style="padding:10px 12px;min-width:155px;font-family:system-ui,sans-serif">
+          <div style="padding:10px 12px;min-width:160px;font-family:system-ui,sans-serif">
             <div style="font-size:12px;font-weight:600;color:#e8eeff;margin-bottom:3px">${ag.subagencia}</div>
             <div style="font-size:9px;color:#7b8db0;font-family:monospace;margin-bottom:8px">${ag.empresa} · ${ag.sucursal || 'Lima'}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-              <div style="background:#141d35;border-radius:6px;padding:5px 8px">
-                <div style="font-size:8px;color:#7b8db0;font-family:monospace">TERMINALES</div>
-                <div style="font-size:16px;font-weight:700;color:${color}">${terms.length}</div>
+              <div style="background:#141d35;border-radius:6px;padding:6px 8px">
+                <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">TERMINALES</div>
+                <div style="font-size:18px;font-weight:800;color:${color};line-height:1">${count}</div>
               </div>
-              <div style="background:#141d35;border-radius:6px;padding:5px 8px">
-                <div style="font-size:8px;color:#7b8db0;font-family:monospace">ESTADO</div>
+              <div style="background:#141d35;border-radius:6px;padding:6px 8px">
+                <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">ESTADO</div>
                 <div style="font-size:10px;font-weight:600;color:${ag.estado === 'EN PRODUCCION' ? '#00e5a0' : '#f7931a'}">${ag.estado === 'EN PRODUCCION' ? 'ACTIVA' : 'PENDIENTE'}</div>
               </div>
             </div>
@@ -184,7 +214,11 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
     <div style={{ position: 'relative', height: '100%', borderRadius: 8, overflow: 'hidden' }}>
       <div ref={divRef} style={{ height: '100%', width: '100%' }} />
       {empresas.length > 0 && (
-        <div style={{ position: 'absolute', bottom: 8, left: 8, zIndex: 1000, background: 'rgba(10,14,26,0.92)', border: '1px solid #1e2d4a', borderRadius: 8, padding: '6px 10px' }}>
+        <div style={{
+          position: 'absolute', bottom: 8, left: 8, zIndex: 1000,
+          background: 'rgba(10,14,26,0.92)', border: '1px solid #1e2d4a',
+          borderRadius: 8, padding: '6px 10px',
+        }}>
           {empresas.slice(0, 5).map((e: any, i: number) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: i < 4 ? 3 : 0 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: EMP_COLORS[i % EMP_COLORS.length] }} />
@@ -196,6 +230,7 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
     </div>
   )
 }
+
 
 // ── Radial gauge ──────────────────────────────────────
 function RadialKpi({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
@@ -246,7 +281,7 @@ const fmt = (n: number) => `S/ ${Math.round(n).toLocaleString('es-PE')}`
 // ── Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
   const user                              = useAuth(s => s.user)
-  const { terminales, empresas, agencias, loaded } = useDB()
+  const { terminales, empresas, agencias, loaded, loadAll } = useDB()
   const { forRole, markRead }             = useNotifs()
   const navigate                          = useNavigate()
 
@@ -271,9 +306,8 @@ export default function Dashboard() {
   })).filter(d => d.value > 0)
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
+  if (!loaded && !terminales.length) loadAll()
+}, [])
 
   useEffect(() => {
     if (!canSeeWAM) return
@@ -302,7 +336,7 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', gap: 5 }}>
           {(['hoy', 'semana', 'mes'] as const).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} style={{
+            <button key={`period-${p}`} onClick={() => setPeriod(p)} style={{
               padding: '5px 13px', borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer',
               border:      period === p ? '1px solid #4f8ef7' : '1px solid #1e2d4a',
               background:  period === p ? 'rgba(79,142,247,0.12)' : 'transparent',

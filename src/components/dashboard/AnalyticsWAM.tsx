@@ -8,62 +8,77 @@ const HOURLY_MOCK = [
   {h:'16',v:8100},{h:'18',v:9200},{h:'20',v:7600},{h:'22',v:4300},
 ]
 
-interface AnalyticsData {
-  rtp: number
-  spins: number
-  peakHour: string
-  avgTicket: number
-  totalOps: number
-}
-
 export default function AnalyticsWAM() {
-  const [data, setData] = useState<AnalyticsData>({
-    rtp: 84.8, spins: 12847, peakHour: '18:00', avgTicket: 18.8, totalOps: 0,
-  })
+  const [rtp, setRtp]       = useState(0)
+  const [loading, setLoad]  = useState(true)
   const currentHour = new Date().getHours()
 
   useEffect(() => {
-    const base = WAM_API_URL.replace(/\/$/, '')
+    const base   = WAM_API_URL.replace(/\/$/, '')
     const secret = encodeURIComponent(WAM_API_SECRET)
     fetch(`${base}/api/hoy?secret=${secret}`)
       .then(r => r.json())
       .then(d => {
-        if (!d.error) {
-          const rtp = d.total_in > 0 ? Math.round((d.total_out / d.total_in) * 1000) / 10 : 84.8
-          setData(prev => ({ ...prev, rtp, totalOps: d.registros || 0 }))
+        if (!d.error && d.total_in > 0) {
+          const r = Math.min(Math.round((d.total_out / d.total_in) * 1000) / 10, 99.9)
+          setRtp(r)
+        } else {
+          setRtp(84.8)
         }
       })
-      .catch(() => {})
+      .catch(() => setRtp(84.8))
+      .finally(() => setLoad(false))
   }, [])
+
+  const rtpColor  = rtp >= 95 ? '#f72564' : rtp >= 85 ? '#f7931a' : '#00e5a0'
+  const rtpAlert  = rtp >= 85
+  const rtpWidth  = Math.min(rtp, 99.9)
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8, height:'100%' }}>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-        <div style={{ background:'#141d35', border:'1px solid #1e2d4a', borderRadius:8, padding:'7px 10px' }}>
-          <div style={{ fontSize:8, color:'#7b8db0', fontFamily:'monospace', letterSpacing:1, marginBottom:3 }}>RTP PROMEDIO</div>
-          <div style={{ fontSize:18, fontWeight:800, color:'#f7931a', lineHeight:1 }}>{data.rtp}%</div>
-          <div style={{ height:2, background:'#1e2d4a', borderRadius:1, marginTop:5, overflow:'hidden' }}>
-            <div style={{ height:'100%', width:`${data.rtp}%`, background:'#f7931a', borderRadius:1 }}/>
+
+        {/* RTP con alerta */}
+        <div style={{ background:'#141d35', border:`1px solid ${rtpAlert ? rtpColor+'40' : '#1e2d4a'}`, borderRadius:8, padding:'7px 10px', position:'relative' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+            <div style={{ fontSize:8, color:'#7b8db0', fontFamily:'monospace', letterSpacing:1 }}>RTP PROMEDIO</div>
+            {rtpAlert && (
+              <div style={{ width:6, height:6, borderRadius:'50%', background:rtpColor, animation:'pulse 1.5s infinite' }}/>
+            )}
           </div>
+          <div style={{ fontSize:18, fontWeight:800, color:rtpColor, lineHeight:1 }}>
+            {loading ? '...' : `${rtp}%`}
+          </div>
+          <div style={{ height:2, background:'#1e2d4a', borderRadius:1, marginTop:5, overflow:'hidden' }}>
+            <div style={{ height:'100%', width:`${rtpWidth}%`, background:rtpColor, borderRadius:1, transition:'width .6s' }}/>
+          </div>
+          {rtpAlert && <div style={{ fontSize:7, color:rtpColor, fontFamily:'monospace', marginTop:3 }}>{rtp >= 95 ? '⚠ CRITICO' : '⚠ ALTO'}</div>}
         </div>
+
+        {/* Spins */}
         <div style={{ background:'#141d35', border:'1px solid #1e2d4a', borderRadius:8, padding:'7px 10px' }}>
           <div style={{ fontSize:8, color:'#7b8db0', fontFamily:'monospace', letterSpacing:1, marginBottom:3 }}>SPINS HOY</div>
-          <div style={{ fontSize:18, fontWeight:800, color:'#00d4ff', lineHeight:1 }}>{data.spins.toLocaleString()}</div>
+          <div style={{ fontSize:18, fontWeight:800, color:'#00d4ff', lineHeight:1 }}>12,847</div>
           <div style={{ height:2, background:'#1e2d4a', borderRadius:1, marginTop:5, overflow:'hidden' }}>
             <div style={{ height:'100%', width:'72%', background:'#00d4ff', borderRadius:1 }}/>
           </div>
         </div>
+
+        {/* Hora pico */}
         <div style={{ background:'#141d35', border:'1px solid #1e2d4a', borderRadius:8, padding:'7px 10px' }}>
           <div style={{ fontSize:8, color:'#7b8db0', fontFamily:'monospace', letterSpacing:1, marginBottom:3 }}>HORA PICO</div>
-          <div style={{ fontSize:18, fontWeight:800, color:'#7c5cfc', lineHeight:1 }}>{data.peakHour}</div>
+          <div style={{ fontSize:18, fontWeight:800, color:'#7c5cfc', lineHeight:1 }}>18:00</div>
           <div style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace', marginTop:3 }}>mayor actividad</div>
         </div>
+
+        {/* Ticket */}
         <div style={{ background:'#141d35', border:'1px solid #1e2d4a', borderRadius:8, padding:'7px 10px' }}>
           <div style={{ fontSize:8, color:'#7b8db0', fontFamily:'monospace', letterSpacing:1, marginBottom:3 }}>TICKET PROM.</div>
-          <div style={{ fontSize:18, fontWeight:800, color:'#00e5a0', lineHeight:1 }}>S/ {data.avgTicket}</div>
+          <div style={{ fontSize:18, fontWeight:800, color:'#00e5a0', lineHeight:1 }}>S/ 18.8</div>
           <div style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace', marginTop:3 }}>por operación</div>
         </div>
       </div>
+
       <div style={{ flex:1 }}>
         <div style={{ fontSize:9, color:'#7b8db0', fontFamily:'monospace', marginBottom:4 }}>ACTIVIDAD POR HORA · HOY</div>
         <ResponsiveContainer width="100%" height={70}>

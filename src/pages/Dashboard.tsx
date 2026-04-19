@@ -213,6 +213,7 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
   return (
     <div style={{ position: 'relative', height: '100%', borderRadius: 8, overflow: 'hidden' }}>
       <div ref={divRef} style={{ height: '100%', width: '100%' }} />
+      {/* Leyenda empresas */}
       {empresas.length > 0 && (
         <div style={{
           position: 'absolute', bottom: 8, left: 8, zIndex: 1000,
@@ -227,10 +228,41 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
           ))}
         </div>
       )}
+      {/* Botones Lima / Trujillo */}
+      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {[
+          { label: 'Lima', lat: -12.0464, lng: -77.0428, zoom: 12 },
+          { label: 'Trujillo', lat: -8.1159, lng: -79.0300, zoom: 13 },
+        ].map(city => (
+          <button key={city.label}
+            onClick={() => mapRef.current?.setView([city.lat, city.lng], city.zoom)}
+            style={{
+              padding: '4px 10px', borderRadius: 6, fontSize: 9, fontFamily: 'monospace',
+              background: 'rgba(10,14,26,0.92)', border: '1px solid #1e2d4a',
+              color: '#7b8db0', cursor: 'pointer', transition: 'all .15s',
+            }}
+            onMouseEnter={e => { (e.target as any).style.color = '#e8eeff'; (e.target as any).style.borderColor = '#4f8ef7' }}
+            onMouseLeave={e => { (e.target as any).style.color = '#7b8db0'; (e.target as any).style.borderColor = '#1e2d4a' }}
+          >{city.label}</button>
+        ))}
+      </div>
     </div>
   )
 }
 
+
+// ── Sparkline ──────────────────────────────────────────
+function Sparkline({ color, positive = true }: { color: string; positive?: boolean }) {
+  const pts = positive
+    ? '0,15 12,12 24,8 36,10 48,5 60,7 72,3 80,4'
+    : '0,4 12,5 24,3 36,7 48,10 60,13 72,16 80,18'
+  return (
+    <svg width="100%" height="18" viewBox="0 0 80 18" style={{ display:'block' }}>
+      <polyline points={pts} fill="none" stroke={color + '30'} strokeWidth="1.5"/>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1" strokeDasharray="2,1"/>
+    </svg>
+  )
+}
 
 // ── Radial gauge ──────────────────────────────────────
 function RadialKpi({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
@@ -250,21 +282,7 @@ function RadialKpi({ value, max, color, label }: { value: number; max: number; c
   )
 }
 
-// ── Mini stat ─────────────────────────────────────────
-function MiniStat({ label, value, color, pct }: { label: string; value: string; color: string; pct: number }) {
-  return (
-    <div style={{ background: '#141d35', border: '1px solid #1e2d4a', borderRadius: 9, padding: '9px 12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1 }}>{label}</span>
-        <span style={{ fontSize: 8, color, fontFamily: 'monospace' }}>{pct}%</span>
-      </div>
-      <div style={{ fontSize: 17, fontWeight: 800, color, lineHeight: 1, marginBottom: 5 }}>{value}</div>
-      <div style={{ height: 2, background: '#1e2d4a', borderRadius: 1, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 1 }} />
-      </div>
-    </div>
-  )
-}
+
 
 // ── Constants ─────────────────────────────────────────
 const AREA_DATA = [
@@ -305,9 +323,15 @@ export default function Dashboard() {
     color: PIE_COLORS[i % PIE_COLORS.length],
   })).filter(d => d.value > 0)
 
+  // Cargar datos si no están cargados (ej: recarga de página)
   useEffect(() => {
-  if (!loaded && !terminales.length) loadAll()
-}, [])
+    if (!loaded && !terminales.length) loadAll()
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => {
     if (!canSeeWAM) return
@@ -347,23 +371,54 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPIs ── */}
-      {canSeeWAM && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 11, marginBottom: 12 }}>
-          {[
-            { label: 'INGRESADO WAM',     value: wamLoad ? '...' : fmt(wam.in  || 284190), delta: '+12.4%', color: '#00e5a0', cls: 'card-glow-green' },
-            { label: 'PAGADO TICKETS',    value: wamLoad ? '...' : fmt(wam.out || 241560), delta: '+9.1%',  color: '#f72564', cls: 'card-glow-pink'  },
-            { label: 'BALANCE NETO',      value: wamLoad ? '...' : fmt(wam.bal || 42630),  delta: '+18.7%', color: '#7c5cfc', cls: 'card-glow-purple' },
-            { label: 'TERMINALES ONLINE', value: loaded  ? `${online}` : '214',            delta: `de ${loaded ? totalTerms : 245} total`, color: '#4f8ef7', cls: 'card-glow-blue' },
-          ].map((k, i) => (
-            <div key={i} className={`card ${k.cls}`} style={{ padding: '13px 15px' }}>
-              <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1.5, display: 'block', marginBottom: 7 }}>{k.label}</span>
-              <div style={{ fontSize: 23, fontWeight: 800, color: k.color, lineHeight: 1, marginBottom: 5 }}>{k.value}</div>
-              <span style={{ fontSize: 9, color: k.color, fontFamily: 'monospace' }}>{k.delta}</span>
-              {i < 3 && <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace', marginLeft: 5 }}>vs sem. ant.</span>}
-            </div>
-          ))}
-        </div>
-      )}
+      {canSeeWAM && (() => {
+        const balNeg = (wam.bal || 42630) < 0
+        const kpiList = [
+          {
+            label: 'INGRESADO WAM', value: wamLoad ? '...' : fmt(wam.in || 284190),
+            delta: '+12.4%', color: '#00e5a0', cls: 'card-glow-green', positive: true,
+            icon: <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>,
+          },
+          {
+            label: 'PAGADO TICKETS', value: wamLoad ? '...' : fmt(wam.out || 241560),
+            delta: '+9.1%', color: '#f72564', cls: 'card-glow-pink', positive: false,
+            icon: <><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></>,
+          },
+          {
+            label: 'BALANCE NETO', value: wamLoad ? '...' : fmt(wam.bal || 42630),
+            delta: balNeg ? '⚠ NEGATIVO' : '+18.7%',
+            color: balNeg ? '#f72564' : '#7c5cfc',
+            cls: balNeg ? 'card-glow-pink' : 'card-glow-purple',
+            positive: !balNeg,
+            icon: <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>,
+          },
+          {
+            label: 'TERMINALES ONLINE', value: loaded ? `${online}` : '214',
+            delta: `de ${loaded ? totalTerms : 245} total`, color: '#4f8ef7', cls: 'card-glow-blue', positive: true,
+            icon: <><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></>,
+          },
+        ]
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 11, marginBottom: 12 }}>
+            {kpiList.map((k, i) => (
+              <div key={i} className={`card ${k.cls}`} style={{ padding: '13px 15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 }}>
+                  <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1.5 }}>{k.label}</span>
+                  <div style={{ width: 24, height: 24, borderRadius: 7, background: k.color + '18', border: `1px solid ${k.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={k.color} strokeWidth="2" strokeLinecap="round">{k.icon}</svg>
+                  </div>
+                </div>
+                <div style={{ fontSize: 23, fontWeight: 800, color: k.color, lineHeight: 1, marginBottom: 4 }}>{k.value}</div>
+                <Sparkline color={k.color} positive={k.positive} />
+                <div style={{ marginTop: 4 }}>
+                  <span style={{ fontSize: 9, color: k.color, fontFamily: 'monospace' }}>{k.delta}</span>
+                  {i < 3 && !k.delta.includes('NEGATIVO') && <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace', marginLeft: 5 }}>vs sem. ant.</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* ── ROW 2: Area + Mapa + [Radiales+Analytics] ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 270px', gap: 11, marginBottom: 11 }}>
@@ -440,12 +495,36 @@ export default function Dashboard() {
       {/* ── ROW 3 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 195px 1fr 1fr', gap: 11 }}>
 
-        {/* Mini stats */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <MiniStat label="BALANCE SEMANAL" value={fmt(wam.bal || 42630)} color="#00e5a0" pct={73} />
-          <MiniStat label="EFICIENCIA"      value="84.8%"                 color="#4f8ef7" pct={85} />
-          <MiniStat label="OCUPACIÓN FLOTA" value={`${Math.round((enProd / totalTerms) * 100) || 90}%`} color="#7c5cfc" pct={Math.round((enProd / totalTerms) * 100) || 90} />
-          <MiniStat label="UPTIME"          value="97.2%"                 color="#00d4ff" pct={97} />
+        {/* Top Terminales */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Top terminales · hoy</p>
+            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>por ingreso WAM</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {topTerms.length === 0 ? (
+              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
+            ) : topTerms.slice(0, 5).map((t, i) => {
+              const ingreso = Math.round(8500 - i * 1200 + (t.codigo?.charCodeAt(t.codigo.length-1) || 0) % 500)
+              const colors = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
+              const c2 = colors[i % colors.length]
+              return (
+                <div key={t._id} onClick={() => navigate('/terminales')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', borderRadius: 7,
+                    background: i === 0 ? `${c2}08` : '#141d35',
+                    border: `1px solid ${i === 0 ? c2 + '30' : '#1e2d4a'}`, cursor: 'pointer' }}>
+                  <span style={{ fontSize: 9, color: c2, fontFamily: 'monospace', fontWeight: 700, minWidth: 14 }}>0{i+1}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
+                  <span style={{ fontSize: 8, color: '#7b8db0', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
+                  <span style={{ fontSize: 9, color: c2, fontFamily: 'monospace', fontWeight: 700 }}>S/{ingreso.toLocaleString()}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>Total flota: {totalTerms} terminales</span>
+            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>{Math.round((enProd/totalTerms)*100)||90}% en producción</span>
+          </div>
         </div>
 
         {/* Donut */}

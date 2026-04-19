@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
+import { useDB } from '../../store/db'
 import { useNotifs } from '../../store/notifs'
 
 const IconDashboard = () => (
@@ -68,13 +69,15 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const unread = useNotifs(s => s.unreadCount)
   const rol = user?.rol || 'TECNICO'
   const count = unread(rol as any)
+  const { terminales } = useDB()
+  const offlineCount = terminales.filter(t => t.estado === 'EN PRODUCCION' && !t.wam_online).length
 
-  const navSections: Array<{label:string; items:Array<{to:string;label:string;icon:React.ReactNode;roles?:string[];soon?:boolean}>}> = [
+  const navSections: Array<{label:string; items:Array<{to:string;label:string;icon:React.ReactNode;roles?:string[];soon?:boolean;badgeOffline?:boolean}>}> = [
     {
       label: 'PRINCIPAL',
       items: [
         { to: '/dashboard', label: 'Dashboard', icon: <IconDashboard />, roles: ['ADMINISTRADOR','DIRECTIVO','FRANQUICIADO','TECNICO'] },
-        { to: '/terminales', label: 'Terminales', icon: <IconTerminales />, roles: ['ADMINISTRADOR','DIRECTIVO','FRANQUICIADO','TECNICO'] },
+        { to: '/terminales', label: 'Terminales', icon: <IconTerminales />, roles: ['ADMINISTRADOR','DIRECTIVO','FRANQUICIADO','TECNICO'], badgeOffline: true },
         { to: '/agencias', label: 'Agencias', icon: <IconAgencias />, roles: ['ADMINISTRADOR','DIRECTIVO','FRANQUICIADO'] },
         { to: '/empresas', label: 'Empresas', icon: <IconEmpresas />, roles: ['ADMINISTRADOR','DIRECTIVO'] },
       ]
@@ -103,14 +106,18 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   ]
 
   return (
-    <aside style={{ background:'#0f1629', borderRight:'1px solid #1e2d4a' }} className={`flex flex-col transition-all duration-200 ${collapsed ? 'w-14' : 'w-52'} shrink-0`}>
+    <aside className={`bg-surface border-r border-border flex flex-col transition-all duration-200 ${collapsed ? 'w-14' : 'w-52'} shrink-0`}>
+      {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 h-[52px] border-b border-border shrink-0">
         <div className="w-6 h-6 rounded-md bg-ac/10 border border-ac/30 flex items-center justify-center shrink-0">
           <div className="w-2 h-2 rounded-full bg-ac" />
         </div>
-        {!collapsed && <span className="text-sm font-semibold text-tx tracking-wide">TerminalOS</span>}
+        {!collapsed && (
+          <span className="text-sm font-semibold text-tx tracking-wide">TerminalOS</span>
+        )}
       </div>
 
+      {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto">
         {navSections.map(section => (
           <div key={section.label}>
@@ -141,7 +148,12 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
                       {item.label === 'Reportería' && count > 0 && (
                         <span className="text-[10px] bg-danger text-white rounded-full px-1.5 py-0.5 leading-none">{count}</span>
                       )}
-                      {item.soon && <span className="text-[9px] text-pur font-mono">próx.</span>}
+                      {item.soon && (
+                        <span className="text-[9px] text-pur font-mono">próx.</span>
+                      )}
+                      {(item as any).badgeOffline && offlineCount > 0 && (
+                        <span style={{ background:'#f72564', color:'#fff', fontSize:9, borderRadius:10, padding:'1px 6px', fontFamily:'monospace', fontWeight:700 }}>{offlineCount}</span>
+                      )}
                     </>
                   )}
                 </NavLink>
@@ -150,6 +162,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         ))}
       </nav>
 
+      {/* Footer */}
       {!collapsed && (
         <div className="px-4 py-3 border-t border-border">
           <p className="text-[9px] text-tx3 font-mono">v2.0 · ELG</p>

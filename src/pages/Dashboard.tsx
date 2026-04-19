@@ -430,66 +430,172 @@ export default function Dashboard() {
       {/* ── ROW 2: Area + Mapa + [Radiales+Analytics] ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 270px', gap: 11, marginBottom: 11 }}>
 
-        {/* Terminales por empresa — datos reales Supabase */}
-        <div className="card card-glow-blue" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Terminales por empresa</p>
-              <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>
-                {enProd} activas de {totalTerms} totales
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#00e5a0', lineHeight: 1 }}>
-                {totalTerms > 0 ? Math.round((enProd / totalTerms) * 100) : 0}%
-              </div>
-              <div style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>activación</div>
-            </div>
-          </div>
+        {/* Panel Opción D: tabs Empresas / Sedes / Terminales */}
+        {(() => {
+          const [tabD, setTabD] = React.useState<'empresas'|'sedes'|'terminales'>('empresas')
+          const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
+          const sedesPend = agencias.filter(a => a.estado === 'PENDIENTE')
+          const [filtroEmpD, setFiltroEmpD] = React.useState('todas')
 
-          {/* Lista empresas */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-            {!loaded ? (
-              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '20px 0' }}>Cargando...</p>
-            ) : empresas.map((emp, i) => {
-              const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
-              const color    = EMP_COLS[i % EMP_COLS.length]
-              const total    = terminales.filter(t => t.empresa === emp.nombre).length
-              const activas  = terminales.filter(t => t.empresa === emp.nombre && (t.estado as string) === 'ACTIVO').length
-              const pct      = total > 0 ? Math.round((activas / total) * 100) : 0
-              const agCount  = agencias.filter(a => a.empresa === emp.nombre).length
-              return (
-                <div key={emp._id}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>{emp.nombre}</span>
-                      <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{agCount} locales</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 10, color, fontFamily: 'monospace', fontWeight: 700 }}>{activas}</span>
-                      <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace' }}>/ {total}</span>
-                      <span style={{ fontSize: 8, background: `${color}15`, color, border: `1px solid ${color}30`, padding: '1px 6px', borderRadius: 8, fontFamily: 'monospace' }}>{pct}%</span>
-                    </div>
-                  </div>
-                  <div style={{ height: 5, background: '#1e2d4a', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width .8s ease' }} />
+          const termsFiltD = filtroEmpD === 'todas'
+            ? topTerms
+            : topTerms.filter(t => t.empresa === filtroEmpD)
+
+          return (
+            <div className="card card-glow-blue" style={{ display: 'flex', flexDirection: 'column' }}>
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                {([
+                  { id: 'empresas',   label: `Empresas (${empresas.length})` },
+                  { id: 'sedes',      label: `Sedes (${agencias.length})` },
+                  { id: 'terminales', label: `Terminales (${totalTerms})` },
+                ] as const).map(tab => (
+                  <button key={tab.id} onClick={() => setTabD(tab.id)} style={{
+                    padding: '4px 11px', borderRadius: 7, fontSize: 9, fontFamily: 'monospace',
+                    cursor: 'pointer', border: '1px solid', fontWeight: tabD === tab.id ? 600 : 400,
+                    background: tabD === tab.id ? 'rgba(0,229,160,0.1)' : 'transparent',
+                    borderColor: tabD === tab.id ? 'rgba(0,229,160,0.35)' : '#1e2d4a',
+                    color: tabD === tab.id ? '#00e5a0' : '#7b8db0',
+                    transition: 'all .15s',
+                  }}>{tab.label}</button>
+                ))}
+              </div>
+
+              {/* ── TAB: EMPRESAS ── */}
+              {tabD === 'empresas' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+                  {!loaded ? (
+                    <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '16px 0' }}>Cargando...</p>
+                  ) : empresas.map((emp, i) => {
+                    const color   = EMP_COLS[i % EMP_COLS.length]
+                    const total   = terminales.filter(t => t.empresa === emp.nombre).length
+                    const activas = terminales.filter(t => t.empresa === emp.nombre && t.estado === 'ACTIVO').length
+                    const pct     = total > 0 ? Math.round((activas / total) * 100) : 0
+                    const sedes   = agencias.filter(a => a.empresa === emp.nombre).length
+                    const sedesPr = agencias.filter(a => a.empresa === emp.nombre && a.estado === 'EN PRODUCCION').length
+                    return (
+                      <div key={emp._id} style={{ background: '#141d35', border: `1px solid ${color}25`, borderRadius: 9, padding: '8px 11px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', flex: 1 }}>{emp.nombre}</span>
+                          <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{sedes} sedes</span>
+                          <span style={{ fontSize: 10, color, fontFamily: 'monospace', fontWeight: 700 }}>{activas}</span>
+                          <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace' }}>/{total}</span>
+                          <span style={{ fontSize: 8, background: `${color}12`, color, border: `1px solid ${color}30`, padding: '1px 6px', borderRadius: 7, fontFamily: 'monospace' }}>{pct}%</span>
+                        </div>
+                        <div style={{ height: 4, background: '#1e2d4a', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width .8s' }} />
+                        </div>
+                        {sedesPr < sedes && (
+                          <div style={{ fontSize: 8, color: '#f7931a', fontFamily: 'monospace', marginTop: 4 }}>
+                            ⚠ {sedes - sedesPr} sede{sedes - sedesPr > 1 ? 's' : ''} pendiente{sedes - sedesPr > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {/* Footer resumen */}
+                  <div style={{ marginTop: 'auto', paddingTop: 7, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{agencias.length} sedes · {empresas.length} operadores</span>
+                    <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>{enProd} terminales activas</span>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              )}
 
-          {/* Footer */}
-          <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>
-              {agencias.length} locales · {empresas.length} operadores
-            </span>
-            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>
-              Supabase · tiempo real
-            </span>
-          </div>
-        </div>
+              {/* ── TAB: SEDES ── */}
+              {tabD === 'sedes' && (
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 230, overflowY: 'auto', paddingRight: 2 }}>
+                    {!loaded ? (
+                      <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '16px 0' }}>Cargando...</p>
+                    ) : [...agencias].sort((a, b) => {
+                        if (a.estado === 'EN PRODUCCION' && b.estado !== 'EN PRODUCCION') return -1
+                        if (b.estado === 'EN PRODUCCION' && a.estado !== 'EN PRODUCCION') return 1
+                        return (a.empresa || '').localeCompare(b.empresa || '')
+                      }).map((ag) => {
+                        const empIdx = empresas.findIndex(e => e.nombre === ag.empresa)
+                        const color  = EMP_COLS[empIdx >= 0 ? empIdx % EMP_COLS.length : 0]
+                        const tCount = terminales.filter(t => t.id_sub === ag.id_sub).length
+                        const tAct   = terminales.filter(t => t.id_sub === ag.id_sub && t.estado === 'ACTIVO').length
+                        const isProd = ag.estado === 'EN PRODUCCION'
+                        return (
+                          <div key={ag._id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7,
+                            background: '#141d35', border: `1px solid ${isProd ? '#1e2d4a' : 'rgba(247,147,26,0.25)'}`, flexShrink: 0 }}>
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: isProd ? color : '#f7931a', flexShrink: 0 }} />
+                            <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ag.subagencia}</span>
+                            <span style={{ fontSize: 8, color: '#3d4f73', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ag.sucursal}</span>
+                            <span style={{ fontSize: 8, color, fontFamily: 'monospace' }}>{tAct}/{tCount}</span>
+                            <span style={{ fontSize: 7, color: isProd ? '#00e5a0' : '#f7931a', fontFamily: 'monospace', flexShrink: 0 }}>
+                              {isProd ? 'PROD' : 'PEND'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                  </div>
+                  {/* Alertas pendientes */}
+                  {sedesPend.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      {sedesPend.map(ag => (
+                        <div key={ag._id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px',
+                          background: 'rgba(247,147,26,0.06)', border: '1px solid rgba(247,147,26,0.2)', borderRadius: 7, marginBottom: 4 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f7931a', flexShrink: 0 }} />
+                          <span style={{ fontSize: 9, color: '#f7931a', fontFamily: 'monospace', flex: 1 }}>{ag.subagencia} — {ag.empresa}</span>
+                          <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>PENDIENTE</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── TAB: TERMINALES ── */}
+              {tabD === 'terminales' && (
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  {/* Filtros empresa */}
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 7, flexWrap: 'wrap' }}>
+                    <button onClick={() => setFiltroEmpD('todas')} style={{
+                      padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
+                      background: filtroEmpD === 'todas' ? 'rgba(0,229,160,0.1)' : 'transparent',
+                      borderColor: filtroEmpD === 'todas' ? 'rgba(0,229,160,0.35)' : '#1e2d4a',
+                      color: filtroEmpD === 'todas' ? '#00e5a0' : '#7b8db0',
+                    }}>Todas ({totalTerms})</button>
+                    {empresas.slice(0, 4).map(emp => (
+                      <button key={emp._id} onClick={() => setFiltroEmpD(emp.nombre)} style={{
+                        padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
+                        background: filtroEmpD === emp.nombre ? 'rgba(79,142,247,0.1)' : 'transparent',
+                        borderColor: filtroEmpD === emp.nombre ? 'rgba(79,142,247,0.35)' : '#1e2d4a',
+                        color: filtroEmpD === emp.nombre ? '#4f8ef7' : '#7b8db0',
+                      }}>{emp.nombre.split(' ')[0]} ({terminales.filter(t => t.empresa === emp.nombre).length})</button>
+                    ))}
+                  </div>
+                  {/* Lista con scroll */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 190, overflowY: 'auto', paddingRight: 2 }}>
+                    {!loaded ? (
+                      <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
+                    ) : termsFiltD.map(t => {
+                      const isAct = t.estado === 'ACTIVO'
+                      return (
+                        <div key={t._id} onClick={() => navigate('/terminales')}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7,
+                            background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer', flexShrink: 0 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: isAct ? '#00e5a0' : '#f72564', flexShrink: 0 }} />
+                          <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', minWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
+                          <span style={{ fontSize: 8, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
+                          <span style={{ fontSize: 7, color: isAct ? '#00e5a0' : '#f72564', fontFamily: 'monospace', flexShrink: 0 }}>
+                            {isAct ? 'ACT' : 'N/D'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d4a', fontSize: 8, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center' }}>
+                    {termsFiltD.length} terminales · {termsFiltD.filter(t => t.estado === 'ACTIVO').length} activas
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Mapa */}
         <div className="card" style={{ padding: '12px', display: 'flex', flexDirection: 'column' }}>
@@ -628,62 +734,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Terminales — panel completo con scroll y filtro */}
-        {(() => {
-          const [filtroEmp, setFiltroEmp] = React.useState('todas')
-          const termsFiltradas = filtroEmp === 'todas'
-            ? topTerms
-            : topTerms.filter(t => t.empresa === filtroEmp)
-          const empNames = Array.from(new Set(terminales.map(t => t.empresa).filter(Boolean))).slice(0, 4)
-          const estadoColor: Record<string,string> = ({ 'EN PRODUCCION': '#00e5a0', 'DISPONIBLE': '#4f8ef7', 'DADA DE BAJA': '#f72564' }) as Record<string,string>
-          return (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Terminales</p>
-                <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>
-                  {termsFiltradas.filter(t => t.estado === 'EN PRODUCCION').length} activas
-                </span>
-              </div>
-              {/* Tabs empresa */}
-              <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => setFiltroEmp('todas')} style={{
-                  padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
-                  background: filtroEmp === 'todas' ? 'rgba(0,229,160,0.12)' : 'transparent',
-                  borderColor: filtroEmp === 'todas' ? 'rgba(0,229,160,0.4)' : '#1e2d4a',
-                  color: filtroEmp === 'todas' ? '#00e5a0' : '#7b8db0',
-                }}>Todas ({totalTerms})</button>
-                {empNames.map(emp => (
-                  <button key={emp} onClick={() => setFiltroEmp(emp)} style={{
-                    padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
-                    background: filtroEmp === emp ? 'rgba(79,142,247,0.12)' : 'transparent',
-                    borderColor: filtroEmp === emp ? 'rgba(79,142,247,0.4)' : '#1e2d4a',
-                    color: filtroEmp === emp ? '#4f8ef7' : '#7b8db0',
-                  }}>{String(emp).split(' ')[0]} ({terminales.filter(t => t.empresa === emp).length})</button>
-                ))}
-              </div>
-              {/* Lista con scroll */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 190, overflowY: 'auto', paddingRight: 2 }}>
-                {!loaded ? (
-                  <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
-                ) : termsFiltradas.map(t => (
-                  <div key={t._id} onClick={() => navigate('/terminales')}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7,
-                      background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer', flexShrink: 0 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: estadoColor[t.estado as string] || '#3d4f73', flexShrink: 0 }} />
-                    <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', minWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
-                    <span style={{ fontSize: 8, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                    <span style={{ fontSize: 7, color: estadoColor[t.estado as string] || '#3d4f73', fontFamily: 'monospace', flexShrink: 0 }}>
-                      {t.estado === 'ACTIVO' ? 'ACT' : 'N/D'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d4a', fontSize: 8, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center' }}>
-                {termsFiltradas.length} terminales · Supabase en tiempo real
-              </div>
-            </div>
-          )
-        })()}
+
       </div>
     </div>
   )

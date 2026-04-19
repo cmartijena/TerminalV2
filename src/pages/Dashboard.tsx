@@ -430,59 +430,65 @@ export default function Dashboard() {
       {/* ── ROW 2: Area + Mapa + [Radiales+Analytics] ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 270px', gap: 11, marginBottom: 11 }}>
 
-        {/* WAM Resumen del día — datos reales */}
+        {/* Terminales por empresa — datos reales Supabase */}
         <div className="card card-glow-blue" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Resumen WAM · hoy</p>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Terminales por empresa</p>
               <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>
-                {now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {enProd} activas de {totalTerms} totales
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: 8, padding: '3px 10px' }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0' }} />
-              <span style={{ fontSize: 9, color: '#00e5a0', fontFamily: 'monospace' }}>EN VIVO</span>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#00e5a0', lineHeight: 1 }}>
+                {totalTerms > 0 ? Math.round((enProd / totalTerms) * 100) : 0}%
+              </div>
+              <div style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>activación</div>
             </div>
           </div>
 
-          {/* KPI grid 2x2 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-            {[
-              { label: 'INGRESADO', value: wamLoad ? '...' : fmt(wam.in || 284190), color: '#00e5a0', sub: 'total del día' },
-              { label: 'PAGADO TICKETS', value: wamLoad ? '...' : fmt(wam.out || 241560), color: '#f72564', sub: 'en tickets' },
-              { label: 'BALANCE NETO', value: wamLoad ? '...' : fmt(wam.bal || 42630), color: (wam.bal || 42630) < 0 ? '#f72564' : '#7c5cfc', sub: (wam.bal||42630) < 0 ? '⚠ negativo' : 'ganancia' },
-              { label: 'OPERACIONES', value: wamLoad ? '...' : (wam.regs || 0).toLocaleString(), color: '#4f8ef7', sub: 'transacciones' },
-            ].map((k, i) => (
-              <div key={i} style={{ background: '#141d35', border: '1px solid #1e2d4a', borderRadius: 8, padding: '8px 10px' }}>
-                <div style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1, marginBottom: 3 }}>{k.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: k.color, lineHeight: 1, marginBottom: 2 }}>{k.value}</div>
-                <div style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{k.sub}</div>
-              </div>
-            ))}
+          {/* Lista empresas */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+            {!loaded ? (
+              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '20px 0' }}>Cargando...</p>
+            ) : empresas.map((emp, i) => {
+              const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
+              const color    = EMP_COLS[i % EMP_COLS.length]
+              const total    = terminales.filter(t => t.empresa === emp.nombre).length
+              const activas  = terminales.filter(t => t.empresa === emp.nombre && (t.estado as string) === 'ACTIVO').length
+              const pct      = total > 0 ? Math.round((activas / total) * 100) : 0
+              const agCount  = agencias.filter(a => a.empresa === emp.nombre).length
+              return (
+                <div key={emp._id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>{emp.nombre}</span>
+                      <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{agCount} locales</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, color, fontFamily: 'monospace', fontWeight: 700 }}>{activas}</span>
+                      <span style={{ fontSize: 9, color: '#3d4f73', fontFamily: 'monospace' }}>/ {total}</span>
+                      <span style={{ fontSize: 8, background: `${color}15`, color, border: `1px solid ${color}30`, padding: '1px 6px', borderRadius: 8, fontFamily: 'monospace' }}>{pct}%</span>
+                    </div>
+                  </div>
+                  <div style={{ height: 5, background: '#1e2d4a', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width .8s ease' }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          {/* Barra de progreso del día */}
-          {(() => {
-            const h = now.getHours(), m = now.getMinutes()
-            const pct = Math.round(((h * 60 + m) / (24 * 60)) * 100)
-            const horasCierre = 24 - h - 1
-            return (
-              <div style={{ marginTop: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>PROGRESO DEL DÍA</span>
-                  <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace' }}>{pct}% · cierra en {horasCierre}h</span>
-                </div>
-                <div style={{ height: 4, background: '#1e2d4a', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #4f8ef7, #7c5cfc)', borderRadius: 2, transition: 'width 1s' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                  <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>00:00</span>
-                  <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace' }}>{String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}</span>
-                  <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>23:59</span>
-                </div>
-              </div>
-            )
-          })()}
+          {/* Footer */}
+          <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>
+              {agencias.length} locales · {empresas.length} operadores
+            </span>
+            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>
+              Supabase · tiempo real
+            </span>
+          </div>
         </div>
 
         {/* Mapa */}

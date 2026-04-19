@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useAuth } from '../store/auth'
 import { useDB } from '../store/db'
 import { useNotifs } from '../store/notifs'
@@ -228,23 +228,40 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
           ))}
         </div>
       )}
-      {/* Botones Lima / Trujillo */}
-      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {[
-          { label: 'Lima', lat: -12.0464, lng: -77.0428, zoom: 12 },
-          { label: 'Trujillo', lat: -8.1159, lng: -79.0300, zoom: 13 },
-        ].map(city => (
-          <button key={city.label}
-            onClick={() => mapRef.current?.setView([city.lat, city.lng], city.zoom)}
-            style={{
-              padding: '4px 10px', borderRadius: 6, fontSize: 9, fontFamily: 'monospace',
-              background: 'rgba(10,14,26,0.92)', border: '1px solid #1e2d4a',
-              color: '#7b8db0', cursor: 'pointer', transition: 'all .15s',
-            }}
-            onMouseEnter={e => { (e.target as any).style.color = '#e8eeff'; (e.target as any).style.borderColor = '#4f8ef7' }}
-            onMouseLeave={e => { (e.target as any).style.color = '#7b8db0'; (e.target as any).style.borderColor = '#1e2d4a' }}
-          >{city.label}</button>
-        ))}
+      {/* Botones dinámicos por departamento + Ver todo */}
+      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 180, overflowY: 'auto' }}>
+        {/* Ver todo */}
+        <button
+          onClick={() => {
+            if (mapRef.current && agencias.length > 0) {
+              const L = (window as any).L
+              if (L) {
+                const pts = agencias.map((ag: any) => getCoords(ag))
+                const bounds = L.latLngBounds(pts)
+                mapRef.current.fitBounds(bounds, { padding: [20, 20] })
+              }
+            }
+          }}
+          style={{ padding: '4px 10px', borderRadius: 6, fontSize: 9, fontFamily: 'monospace',
+            background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.4)',
+            color: '#4f8ef7', cursor: 'pointer' }}>
+          Ver todo
+        </button>
+        {/* Un botón por cada departamento único */}
+        {Array.from(new Set(agencias.map((ag: any) => ag.sucursal).filter(Boolean))).map((dept: any) => {
+          const coords = getCoords({ sucursal: dept, subagencia: '' })
+          return (
+            <button key={dept}
+              onClick={() => mapRef.current?.setView(coords, 12)}
+              style={{ padding: '4px 10px', borderRadius: 6, fontSize: 9, fontFamily: 'monospace',
+                background: 'rgba(10,14,26,0.92)', border: '1px solid #1e2d4a',
+                color: '#7b8db0', cursor: 'pointer', transition: 'all .15s', textAlign: 'left' }}
+              onMouseEnter={e => { const t = e.target as any; t.style.color='#e8eeff'; t.style.borderColor='#4f8ef7' }}
+              onMouseLeave={e => { const t = e.target as any; t.style.color='#7b8db0'; t.style.borderColor='#1e2d4a' }}>
+              {String(dept).toUpperCase()}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -285,12 +302,7 @@ function RadialKpi({ value, max, color, label }: { value: number; max: number; c
 
 
 // ── Constants ─────────────────────────────────────────
-const AREA_DATA = [
-  { day: 'Lun', in: 32400, out: 28100 }, { day: 'Mar', in: 41200, out: 35600 },
-  { day: 'Mié', in: 38900, out: 33200 }, { day: 'Jue', in: 45600, out: 38900 },
-  { day: 'Vie', in: 52100, out: 44300 }, { day: 'Sáb', in: 48300, out: 41200 },
-  { day: 'Dom', in: 25700, out: 21800 },
-]
+// AREA_DATA removed — using real WAM data
 const PIE_COLORS   = ['#4f8ef7', '#7c5cfc', '#00e5a0', '#f7931a', '#00d4ff']
 const NOTIF_BG     : Record<string, string> = { danger: 'rgba(247,37,100,0.12)', warn: 'rgba(247,147,26,0.12)', info: 'rgba(79,142,247,0.12)', success: 'rgba(0,229,160,0.12)' }
 const NOTIF_COLOR  : Record<string, string> = { danger: '#f72564', warn: '#f7931a', info: '#4f8ef7', success: '#00e5a0' }
@@ -312,10 +324,13 @@ export default function Dashboard() {
   const notifs     = forRole(rol as any).slice(0, 5)
   const canSeeWAM  = ['ADMINISTRADOR', 'DIRECTIVO'].includes(rol)
   const totalTerms = terminales.length  || 245
-  const online     = terminales.filter(t => t.wam_online).length || 214
   const enProd     = terminales.filter(t => t.estado === 'EN PRODUCCION').length || 221
-  const offline    = terminales.filter(t => t.estado === 'EN PRODUCCION' && !t.wam_online)
-  const topTerms   = [...terminales].slice(0, 5)
+  const online     = enProd  // campo estado es la fuente de verdad
+  // offline removed — using estado field directly
+  const topTerms   = [...terminales].sort((a, b) => {
+    const order = ['EN PRODUCCION', 'DISPONIBLE', 'DADA DE BAJA']
+    return (order.indexOf(a.estado) ?? 3) - (order.indexOf(b.estado) ?? 3)
+  })
 
   const empData = empresas.map((e, i) => ({
     name:  e.nombre,
@@ -423,42 +438,59 @@ export default function Dashboard() {
       {/* ── ROW 2: Area + Mapa + [Radiales+Analytics] ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 270px', gap: 11, marginBottom: 11 }}>
 
-        {/* Area chart */}
-        <div className="card card-glow-blue">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 11 }}>
+        {/* WAM Resumen del día — datos reales */}
+        <div className="card card-glow-blue" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Flujo WAM — últimos 7 días</p>
-              <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>ingresos vs pagos en soles</p>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Resumen WAM · hoy</p>
+              <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>
+                {now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {[['#4f8ef7', 'Ingresado'], ['#f72564', 'Pagado']].map(([c, l]) => (
-                <div key={l as string} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: 2, background: c as string }} />
-                  <span style={{ fontSize: 9, color: '#7b8db0' }}>{l as string}</span>
-                </div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: 8, padding: '3px 10px' }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0' }} />
+              <span style={{ fontSize: 9, color: '#00e5a0', fontFamily: 'monospace' }}>EN VIVO</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={148}>
-            <AreaChart data={AREA_DATA}>
-              <defs>
-                <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#4f8ef7" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#4f8ef7" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#f72564" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#f72564" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" tick={{ fill: '#3d4f73', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: 8, fontSize: 11 }}
-                labelStyle={{ color: '#7b8db0' }} formatter={(v: any) => [`S/ ${Number(v).toLocaleString()}`, '']} />
-              <Area type="monotone" dataKey="in"  stroke="#4f8ef7" strokeWidth={2} fill="url(#gIn)"  />
-              <Area type="monotone" dataKey="out" stroke="#f72564" strokeWidth={2} fill="url(#gOut)" />
-            </AreaChart>
-          </ResponsiveContainer>
+
+          {/* KPI grid 2x2 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            {[
+              { label: 'INGRESADO', value: wamLoad ? '...' : fmt(wam.in || 284190), color: '#00e5a0', sub: 'total del día' },
+              { label: 'PAGADO TICKETS', value: wamLoad ? '...' : fmt(wam.out || 241560), color: '#f72564', sub: 'en tickets' },
+              { label: 'BALANCE NETO', value: wamLoad ? '...' : fmt(wam.bal || 42630), color: (wam.bal || 42630) < 0 ? '#f72564' : '#7c5cfc', sub: (wam.bal||42630) < 0 ? '⚠ negativo' : 'ganancia' },
+              { label: 'OPERACIONES', value: wamLoad ? '...' : (wam.regs || 0).toLocaleString(), color: '#4f8ef7', sub: 'transacciones' },
+            ].map((k, i) => (
+              <div key={i} style={{ background: '#141d35', border: '1px solid #1e2d4a', borderRadius: 8, padding: '8px 10px' }}>
+                <div style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace', letterSpacing: 1, marginBottom: 3 }}>{k.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: k.color, lineHeight: 1, marginBottom: 2 }}>{k.value}</div>
+                <div style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Barra de progreso del día */}
+          {(() => {
+            const h = now.getHours(), m = now.getMinutes()
+            const pct = Math.round(((h * 60 + m) / (24 * 60)) * 100)
+            const horasCierre = 24 - h - 1
+            return (
+              <div style={{ marginTop: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>PROGRESO DEL DÍA</span>
+                  <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace' }}>{pct}% · cierra en {horasCierre}h</span>
+                </div>
+                <div style={{ height: 4, background: '#1e2d4a', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #4f8ef7, #7c5cfc)', borderRadius: 2, transition: 'width 1s' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>00:00</span>
+                  <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace' }}>{String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}</span>
+                  <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>23:59</span>
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Mapa */}
@@ -495,35 +527,52 @@ export default function Dashboard() {
       {/* ── ROW 3 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 195px 1fr 1fr', gap: 11 }}>
 
-        {/* Top Terminales */}
+        {/* Resumen de flota — datos reales */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Top terminales · hoy</p>
-            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>por ingreso WAM</span>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Estado de flota</p>
+            <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>{totalTerms} terminales</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {topTerms.length === 0 ? (
-              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
-            ) : topTerms.slice(0, 5).map((t, i) => {
-              const ingreso = Math.round(8500 - i * 1200 + (t.codigo?.charCodeAt(t.codigo.length-1) || 0) % 500)
-              const colors = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
-              const c2 = colors[i % colors.length]
-              return (
-                <div key={t._id} onClick={() => navigate('/terminales')}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', borderRadius: 7,
-                    background: i === 0 ? `${c2}08` : '#141d35',
-                    border: `1px solid ${i === 0 ? c2 + '30' : '#1e2d4a'}`, cursor: 'pointer' }}>
-                  <span style={{ fontSize: 9, color: c2, fontFamily: 'monospace', fontWeight: 700, minWidth: 14 }}>0{i+1}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
-                  <span style={{ fontSize: 8, color: '#7b8db0', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                  <span style={{ fontSize: 9, color: c2, fontFamily: 'monospace', fontWeight: 700 }}>S/{ingreso.toLocaleString()}</span>
-                </div>
-              )
-            })}
+          {/* Stats por estado */}
+          {(() => {
+            const estados = [
+              { label: 'EN PRODUCCION', color: '#00e5a0', count: terminales.filter(t => t.estado === 'EN PRODUCCION').length },
+              { label: 'DISPONIBLE',    color: '#4f8ef7', count: terminales.filter(t => t.estado === 'DISPONIBLE').length },
+              { label: 'DADA DE BAJA',  color: '#f72564', count: terminales.filter(t => (t.estado as string) === 'DADA DE BAJA').length },
+            ]
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                {estados.map(e => (
+                  <div key={e.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: 9, color: e.color, fontFamily: 'monospace' }}>{e.label}</span>
+                      <span style={{ fontSize: 9, color: e.color, fontFamily: 'monospace', fontWeight: 700 }}>{e.count}</span>
+                    </div>
+                    <div style={{ height: 3, background: '#1e2d4a', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${totalTerms > 0 ? Math.round((e.count/totalTerms)*100) : 0}%`, background: e.color, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+          {/* Lista top terminales EN PRODUCCION */}
+          <div style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace', marginBottom: 5 }}>ÚLTIMAS ACTIVAS</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {!loaded ? (
+              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '6px 0' }}>Cargando...</p>
+            ) : topTerms.filter(t => t.estado === 'EN PRODUCCION').slice(0, 4).map(t => (
+              <div key={t._id} onClick={() => navigate('/terminales')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer' }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0', flexShrink: 0 }} />
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
+                <span style={{ fontSize: 8, color: '#7b8db0', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
+              </div>
+            ))}
           </div>
-          <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>Total flota: {totalTerms} terminales</span>
-            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>{Math.round((enProd/totalTerms)*100)||90}% en producción</span>
+          <div style={{ paddingTop: 7, borderTop: '1px solid #1e2d4a', marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>Supabase · tiempo real</span>
+            <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => navigate('/terminales')}>Ver todas →</span>
           </div>
         </div>
 
@@ -582,55 +631,62 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Terminales */}
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Terminales</p>
-            {offline.length > 0 && (
-              <span style={{ fontSize: 8, background: 'rgba(247,37,100,0.1)', color: '#f72564', border: '1px solid rgba(247,37,100,0.2)', padding: '1px 6px', borderRadius: 10, fontFamily: 'monospace' }}>{offline.length} offline</span>
-            )}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {!loaded ? (
-              <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
-            ) : offline.length === 0 ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 7px', borderBottom: '1px solid #1e2d4a', marginBottom: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0' }} />
-                  <p style={{ margin: 0, fontSize: 10, color: '#00e5a0', fontFamily: 'monospace' }}>Todas operativas</p>
-                </div>
-                {topTerms.slice(0, 4).map(t => (
-                  <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: '#141d35', border: '1px solid #1e2d4a' }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0', flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace' }}>{t.codigo}</span>
-                    <span style={{ fontSize: 9, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                    <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>ACTIVA</span>
-                  </div>
+        {/* Terminales — panel completo con scroll y filtro */}
+        {(() => {
+          const [filtroEmp, setFiltroEmp] = React.useState('todas')
+          const termsFiltradas = filtroEmp === 'todas'
+            ? topTerms
+            : topTerms.filter(t => t.empresa === filtroEmp)
+          const empNames = Array.from(new Set(terminales.map(t => t.empresa).filter(Boolean))).slice(0, 4)
+          const estadoColor: Record<string,string> = ({ 'EN PRODUCCION': '#00e5a0', 'DISPONIBLE': '#4f8ef7', 'DADA DE BAJA': '#f72564' }) as Record<string,string>
+          return (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Terminales</p>
+                <span style={{ fontSize: 8, color: '#7b8db0', fontFamily: 'monospace' }}>
+                  {termsFiltradas.filter(t => t.estado === 'EN PRODUCCION').length} activas
+                </span>
+              </div>
+              {/* Tabs empresa */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => setFiltroEmp('todas')} style={{
+                  padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
+                  background: filtroEmp === 'todas' ? 'rgba(0,229,160,0.12)' : 'transparent',
+                  borderColor: filtroEmp === 'todas' ? 'rgba(0,229,160,0.4)' : '#1e2d4a',
+                  color: filtroEmp === 'todas' ? '#00e5a0' : '#7b8db0',
+                }}>Todas ({totalTerms})</button>
+                {empNames.map(emp => (
+                  <button key={emp} onClick={() => setFiltroEmp(emp)} style={{
+                    padding: '2px 8px', borderRadius: 6, fontSize: 8, fontFamily: 'monospace', cursor: 'pointer', border: '1px solid',
+                    background: filtroEmp === emp ? 'rgba(79,142,247,0.12)' : 'transparent',
+                    borderColor: filtroEmp === emp ? 'rgba(79,142,247,0.4)' : '#1e2d4a',
+                    color: filtroEmp === emp ? '#4f8ef7' : '#7b8db0',
+                  }}>{String(emp).split(' ')[0]} ({terminales.filter(t => t.empresa === emp).length})</button>
                 ))}
-              </>
-            ) : (
-              <>
-                {offline.slice(0, 3).map(t => (
+              </div>
+              {/* Lista con scroll */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 190, overflowY: 'auto', paddingRight: 2 }}>
+                {!loaded ? (
+                  <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '10px 0' }}>Cargando...</p>
+                ) : termsFiltradas.map(t => (
                   <div key={t._id} onClick={() => navigate('/terminales')}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer' }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f72564', flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace' }}>{t.codigo}</span>
-                    <span style={{ fontSize: 9, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                    <span style={{ fontSize: 8, color: '#f72564', fontFamily: 'monospace' }}>OFFLINE</span>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7,
+                      background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer', flexShrink: 0 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: estadoColor[t.estado as string] || '#3d4f73', flexShrink: 0 }} />
+                    <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', minWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
+                    <span style={{ fontSize: 8, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
+                    <span style={{ fontSize: 7, color: estadoColor[t.estado as string] || '#3d4f73', fontFamily: 'monospace', flexShrink: 0 }}>
+                      {t.estado === 'EN PRODUCCION' ? 'PROD' : t.estado === 'DISPONIBLE' ? 'DISP' : 'BAJA'}
+                    </span>
                   </div>
                 ))}
-                {topTerms.filter(t => t.wam_online).slice(0, 2).map(t => (
-                  <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: 'rgba(0,229,160,0.03)', border: '1px solid rgba(0,229,160,0.1)' }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0', flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace' }}>{t.codigo}</span>
-                    <span style={{ fontSize: 9, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
-                    <span style={{ fontSize: 8, color: '#00e5a0', fontFamily: 'monospace' }}>ONLINE</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+              <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d4a', fontSize: 8, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center' }}>
+                {termsFiltradas.length} terminales · Supabase en tiempo real
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

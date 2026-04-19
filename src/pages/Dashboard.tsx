@@ -317,19 +317,20 @@ export default function Dashboard() {
 
   const [wam, setWam]       = useState({ in: 0, out: 0, bal: 0, regs: 0 })
   const [wamLoad, setWL]    = useState(false)
-  const [period, setPeriod] = useState<'hoy' | 'semana' | 'mes'>('semana')
   const [now, setNow]       = useState(new Date())
 
   const rol        = user?.rol || 'TECNICO'
   const notifs     = forRole(rol as any).slice(0, 5)
   const canSeeWAM  = ['ADMINISTRADOR', 'DIRECTIVO'].includes(rol)
   const totalTerms = terminales.length  || 245
-  const enProd     = terminales.filter(t => t.estado === 'EN PRODUCCION').length || 221
-  const online     = enProd  // campo estado es la fuente de verdad
+  const enProd     = terminales.filter(t => t.estado === 'ACTIVO').length
+  const online     = enProd
   // offline removed — using estado field directly
-  const topTerms   = [...terminales].sort((a, b) => {
-    const order = ['EN PRODUCCION', 'DISPONIBLE', 'DADA DE BAJA']
-    return (order.indexOf(a.estado) ?? 3) - (order.indexOf(b.estado) ?? 3)
+  const topTerms   = [...terminales].sort((ta, tb) => {
+    const ord = ['ACTIVO', 'NO DISPONIBLE']
+    const ai  = ord.indexOf(ta.estado as string)
+    const bi  = ord.indexOf(tb.estado as string)
+    return (ai < 0 ? 9 : ai) - (bi < 0 ? 9 : bi)
   })
 
   const empData = empresas.map((e, i) => ({
@@ -373,16 +374,7 @@ export default function Dashboard() {
             {' · en vivo'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {(['hoy', 'semana', 'mes'] as const).map(p => (
-            <button key={`period-${p}`} onClick={() => setPeriod(p)} style={{
-              padding: '5px 13px', borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer',
-              border:      period === p ? '1px solid #4f8ef7' : '1px solid #1e2d4a',
-              background:  period === p ? 'rgba(79,142,247,0.12)' : 'transparent',
-              color:       period === p ? '#4f8ef7' : '#7b8db0',
-            }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
-          ))}
-        </div>
+
       </div>
 
       {/* ── KPIs ── */}
@@ -512,8 +504,8 @@ export default function Dashboard() {
           <div className="card" style={{ padding: '11px' }}>
             <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Estado de flota</p>
             <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-              <RadialKpi value={online}          max={totalTerms}    color="#00e5a0" label="Online"   />
-              <RadialKpi value={enProd}           max={totalTerms}    color="#4f8ef7" label="En prod." />
+              <RadialKpi value={enProd}           max={totalTerms}    color="#00e5a0" label="Activas"  />
+              <RadialKpi value={terminales.filter(t=>(t.estado as string)==='NO DISPONIBLE').length} max={totalTerms} color="#f72564" label="Inactivas" />
               <RadialKpi value={empresas.length || 5} max={10}       color="#7c5cfc" label="Empresas" />
             </div>
           </div>
@@ -536,9 +528,8 @@ export default function Dashboard() {
           {/* Stats por estado */}
           {(() => {
             const estados = [
-              { label: 'EN PRODUCCION', color: '#00e5a0', count: terminales.filter(t => t.estado === 'EN PRODUCCION').length },
-              { label: 'DISPONIBLE',    color: '#4f8ef7', count: terminales.filter(t => t.estado === 'DISPONIBLE').length },
-              { label: 'DADA DE BAJA',  color: '#f72564', count: terminales.filter(t => (t.estado as string) === 'DADA DE BAJA').length },
+              { label: 'ACTIVO',        color: '#00e5a0', count: terminales.filter(t => t.estado === 'ACTIVO').length },
+              { label: 'NO DISPONIBLE', color: '#f72564', count: terminales.filter(t => t.estado === 'NO DISPONIBLE').length },
             ]
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
@@ -561,7 +552,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {!loaded ? (
               <p style={{ fontSize: 10, color: '#3d4f73', fontFamily: 'monospace', textAlign: 'center', padding: '6px 0' }}>Cargando...</p>
-            ) : topTerms.filter(t => t.estado === 'EN PRODUCCION').slice(0, 4).map(t => (
+            ) : topTerms.filter(t => t.estado === 'ACTIVO').slice(0, 4).map(t => (
               <div key={t._id} onClick={() => navigate('/terminales')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 7, background: '#141d35', border: '1px solid #1e2d4a', cursor: 'pointer' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0', flexShrink: 0 }} />
@@ -676,7 +667,7 @@ export default function Dashboard() {
                     <span style={{ fontSize: 9, fontWeight: 600, color: '#e8eeff', fontFamily: 'monospace', minWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.codigo}</span>
                     <span style={{ fontSize: 8, color: '#7b8db0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.agencia || t.empresa}</span>
                     <span style={{ fontSize: 7, color: estadoColor[t.estado as string] || '#3d4f73', fontFamily: 'monospace', flexShrink: 0 }}>
-                      {t.estado === 'EN PRODUCCION' ? 'PROD' : t.estado === 'DISPONIBLE' ? 'DISP' : 'BAJA'}
+                      {t.estado === 'ACTIVO' ? 'ACT' : 'N/D'}
                     </span>
                   </div>
                 ))}

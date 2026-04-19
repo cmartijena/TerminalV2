@@ -52,7 +52,7 @@ export interface Agencia {
 }
 
 // ── Terminal ──────────────────────────────────────────
-export type EstadoTerminal = 'EN PRODUCCION' | 'DISPONIBLE' | 'EN REPARACION' | 'BAJA'
+export type EstadoTerminal = 'EN PRODUCCION' | 'DISPONIBLE' | 'EN REPARACION' | 'BAJA' | 'ACTIVO' | 'NO DISPONIBLE'
 
 export interface Terminal {
   _id?: string

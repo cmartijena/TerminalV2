@@ -60,6 +60,7 @@ export const useSolicitudes = create<SolicitudState>((set, get) => ({
     try {
       const { error } = await supa.from('solicitudes').insert([{
         tipo:    s.tipo,
+        encargado: s.franquiciado_nombre, // backward compat
         empresa: s.empresa,
         empresa_id: s.empresa_id,
         franquiciado_nombre:   s.franquiciado_nombre,

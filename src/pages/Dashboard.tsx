@@ -532,7 +532,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── ROW 3 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 195px 1fr 1fr', gap: 11 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isFranq ? '1fr 195px 1fr' : '1fr 195px 1fr 1fr', gap: 11 }}>
 
         {/* Resumen de flota — datos reales */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -582,35 +582,97 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Donut */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <p style={{ margin: '0 0 5px', fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Por empresa</p>
-          <ResponsiveContainer width="100%" height={95}>
-            <PieChart>
-              <Pie
-                data={empData.length > 0 ? empData : [{ name: isFranq ? miEmpNombre : 'Sin datos', value: 1, color: '#1e2d4a' }]}
-                cx="50%" cy="50%" innerRadius={24} outerRadius={42} paddingAngle={3} dataKey="value"
-              >
-                {(empData.length > 0 ? empData : [{ color: '#1e2d4a' }]).map((d: any, i: number) => (
-                  <Cell key={i} fill={d.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: 6, fontSize: 10 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {empData.slice(0, 4).map((d, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 5, height: 5, borderRadius: 1, background: d.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 9, color: '#7b8db0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                <span style={{ fontSize: 9, color: d.color, fontFamily: 'monospace' }}>{d.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Donut — empresa/provincia/agencia según rol */}
+        {(() => {
+          const PIE_C = ['#4f8ef7','#7c5cfc','#00e5a0','#f7931a','#00d4ff','#f72564']
+          let donutData: { name: string; value: number; color: string }[] = []
+          let donutTitle = 'Por empresa'
 
-        {/* Notificaciones */}
-        <div className="card">
+          if (isFranq) {
+            // Provincias únicas de mis agencias
+            const provs = Array.from(new Set(misAgencias.map(a => a.sucursal).filter(Boolean)))
+            if (provs.length <= 1) {
+              // Solo 1 provincia → mostrar por agencia
+              donutTitle = provs[0] ? `Agencias · ${provs[0]}` : 'Mis agencias'
+              donutData = misAgencias.map((ag, i) => ({
+                name:  ag.subagencia,
+                value: misTerminales.filter(t => t.id_sub === ag.id_sub).length,
+                color: PIE_C[i % PIE_C.length],
+              })).filter(d => d.value > 0)
+            } else {
+              // Varias provincias → por provincia
+              donutTitle = 'Por provincia'
+              donutData = provs.map((prov, i) => ({
+                name:  String(prov),
+                value: misAgencias.filter(a => a.sucursal === prov).length,
+                color: PIE_C[i % PIE_C.length],
+              }))
+            }
+          } else {
+            donutTitle = 'Por empresa'
+            donutData = empData
+          }
+
+          const fallback = [{ name: 'Sin datos', value: 1, color: '#1e2d4a' }]
+          const data = donutData.length > 0 ? donutData : fallback
+
+          return (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+              <p style={{ margin: '0 0 5px', fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>{donutTitle}</p>
+              <ResponsiveContainer width="100%" height={95}>
+                <PieChart>
+                  <Pie data={data} cx="50%" cy="50%" innerRadius={24} outerRadius={42} paddingAngle={3} dataKey="value">
+                    {data.map((d: any, i: number) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e2d4a', borderRadius: 6, fontSize: 10 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 80, overflowY: 'auto' }}>
+                {donutData.slice(0, 6).map((d, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: 1, background: d.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 9, color: '#7b8db0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                    <span style={{ fontSize: 9, color: d.color, fontFamily: 'monospace' }}>{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* WAM Reporte franquiciado O Notificaciones admin */}
+        {isFranq ? (
+          <div className="card card-glow-blue">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Reporte WAM · hoy</p>
+                <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>{miEmpNombre}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: 8, padding: '3px 10px' }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e5a0' }} />
+                <span style={{ fontSize: 9, color: '#00e5a0', fontFamily: 'monospace' }}>EN VIVO</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {[
+                { label: 'INGRESADO', value: wamLoad ? '...' : fmt(wam.in || 0), color: '#00e5a0', icon: '↑' },
+                { label: 'PAGADO',    value: wamLoad ? '...' : fmt(wam.out || 0), color: '#f72564', icon: '↓' },
+                { label: 'BALANCE',   value: wamLoad ? '...' : fmt(wam.bal || 0), color: (wam.bal || 0) < 0 ? '#f72564' : '#7c5cfc', icon: '=' },
+              ].map((k, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#141d35', border: '1px solid #1e2d4a', borderRadius: 8 }}>
+                  <span style={{ fontSize: 14, color: k.color, fontFamily: 'monospace', width: 16 }}>{k.icon}</span>
+                  <span style={{ fontSize: 9, color: '#7b8db0', fontFamily: 'monospace', flex: 1 }}>{k.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: k.color, fontFamily: 'monospace' }}>{k.value}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #1e2d4a', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 8, color: '#3d4f73', fontFamily: 'monospace' }}>Solo datos de {miEmpNombre}</span>
+              <span style={{ fontSize: 8, color: '#4f8ef7', fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => navigate('/wam')}>Ver reporte →</span>
+            </div>
+          </div>
+        ) : (
+          <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Notificaciones</p>
             <button onClick={() => useNotifs.getState().togglePanel()}
@@ -636,6 +698,7 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+        )}
 
 
       </div>

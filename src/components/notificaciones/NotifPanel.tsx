@@ -90,7 +90,7 @@ export default function NotifPanel() {
   const unread = notifs.filter(n => !n.leida).length
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-xl overflow-hidden z-50">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-xl overflow-hidden" style={{ zIndex: 9999 }}>
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-tx">Notificaciones</span>

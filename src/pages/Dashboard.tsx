@@ -114,13 +114,11 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
 
+  // Init mapa UNA sola vez — no se destruye en cada render
   useEffect(() => {
     if (!divRef.current) return
-
     loadLeaflet().then(() => {
       const L = (window as any).L
-
-      // Estilos popup y zoom dark
       if (!document.getElementById('tlos-map-css')) {
         const st = document.createElement('style'); st.id = 'tlos-map-css'
         st.textContent = [
@@ -134,75 +132,66 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
         ].join('')
         document.head.appendChild(st)
       }
-
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
-
+      if (mapRef.current) return
       const map = L.map(divRef.current, {
         center: [-12.0464, -77.0428], zoom: 12,
         zoomControl: false, attributionControl: false,
       })
       mapRef.current = map
-
-      // Tile Positron (minimalista) con CSS filter para invertir a negro
       L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
         { maxZoom: 19, subdomains: 'abcd' }
       ).addTo(map)
-
-      
       L.control.zoom({ position: 'bottomright' }).addTo(map)
-
-      agencias.forEach((ag: any) => {
-        const coords = getCoords(ag)
-        const ei     = empresas.findIndex((e: any) => e.nombre === ag.empresa)
-        const color  = EMP_COLORS[ei >= 0 ? ei % EMP_COLORS.length : 0]
-        const terms  = terminales.filter((t: any) => t.id_sub === ag.id_sub)
-        const count  = terms.length
-        const size   = count > 9 ? 28 : 24
-
-        // Pin circular con número de terminales adentro
-        const isLight = ['#00e5a0','#00d4ff'].includes(color)
-        const textColor = isLight ? '#0a0e1a' : '#ffffff'
-
-        const icon = L.divIcon({
-          className: '',
-          html: `<div style="
-            width:${size}px;height:${size}px;border-radius:50%;
-            background:${color};
-            border:2px solid rgba(255,255,255,0.2);
-            display:flex;align-items:center;justify-content:center;
-            font-size:${count > 9 ? 10 : 11}px;font-weight:700;
-            color:${textColor};
-            font-family:monospace;
-            cursor:pointer;
-            box-shadow:0 2px 8px rgba(0,0,0,0.5);
-          ">${count}</div>`,
-          iconSize:   [size, size],
-          iconAnchor: [size/2, size/2],
-        })
-
-        L.marker(coords, { icon }).addTo(map).bindPopup(`
-          <div style="padding:10px 12px;min-width:160px;font-family:system-ui,sans-serif">
-            <div style="font-size:12px;font-weight:600;color:#e8eeff;margin-bottom:3px">${ag.subagencia}</div>
-            <div style="font-size:9px;color:#7b8db0;font-family:monospace;margin-bottom:8px">${ag.empresa} · ${ag.sucursal || 'Lima'}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-              <div style="background:#141d35;border-radius:6px;padding:6px 8px">
-                <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">TERMINALES</div>
-                <div style="font-size:18px;font-weight:800;color:${color};line-height:1">${count}</div>
-              </div>
-              <div style="background:#141d35;border-radius:6px;padding:6px 8px">
-                <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">ESTADO</div>
-                <div style="font-size:10px;font-weight:600;color:${ag.estado === 'EN PRODUCCION' ? '#00e5a0' : '#f7931a'}">${ag.estado === 'EN PRODUCCION' ? 'ACTIVA' : 'PENDIENTE'}</div>
-              </div>
-            </div>
-          </div>
-        `, { className: '', maxWidth: 220 })
-      })
     })
-
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
+  }, [])  // Solo al montar — nunca destruir el mapa por re-renders
+
+  // Pins — actualizar sin destruir el mapa
+  useEffect(() => {
+    if (!mapRef.current || !agencias.length) return
+    const L = (window as any).L
+    if (!L) return
+
+    // Limpiar solo markers
+    mapRef.current.eachLayer((layer: any) => {
+      if (layer instanceof L.Marker) mapRef.current.removeLayer(layer)
+    })
+
+    agencias.forEach((ag: any) => {
+      const coords = getCoords(ag)
+      const ei     = empresas.findIndex((e: any) => e.nombre === ag.empresa)
+      const color  = EMP_COLORS[ei >= 0 ? ei % EMP_COLORS.length : 0]
+      const terms  = terminales.filter((t: any) => t.id_sub === ag.id_sub)
+      const count  = terms.length
+      const size   = count > 9 ? 28 : 24
+      const isLight = ['#00e5a0','#00d4ff'].includes(color)
+      const textColor = isLight ? '#0a0e1a' : '#ffffff'
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:${count>9?10:11}px;font-weight:700;color:${textColor};font-family:monospace;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${count}</div>`,
+        iconSize: [size, size], iconAnchor: [size/2, size/2],
+      })
+      L.marker(coords, { icon }).addTo(mapRef.current).bindPopup(`
+        <div style="padding:10px 12px;min-width:160px;font-family:system-ui,sans-serif">
+          <div style="font-size:12px;font-weight:600;color:#e8eeff;margin-bottom:3px">${ag.subagencia}</div>
+          <div style="font-size:9px;color:#7b8db0;font-family:monospace;margin-bottom:8px">${ag.empresa} · ${ag.sucursal||'Lima'}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            <div style="background:#141d35;border-radius:6px;padding:6px 8px">
+              <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">TERMINALES</div>
+              <div style="font-size:18px;font-weight:800;color:${color};line-height:1">${count}</div>
+            </div>
+            <div style="background:#141d35;border-radius:6px;padding:6px 8px">
+              <div style="font-size:8px;color:#7b8db0;font-family:monospace;margin-bottom:2px">ESTADO</div>
+              <div style="font-size:10px;font-weight:600;color:${ag.estado==='EN PRODUCCION'?'#00e5a0':'#f7931a'}">${ag.estado==='EN PRODUCCION'?'ACTIVA':'PENDIENTE'}</div>
+            </div>
+          </div>
+        </div>
+      `, { className: '', maxWidth: 220 })
+    })
   }, [agencias, empresas, terminales])
 
   return (

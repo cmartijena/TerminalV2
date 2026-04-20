@@ -158,7 +158,7 @@ export interface DB {
   accesosWAM: AccesoWAM[]
 }
 // ── Solicitud ─────────────────────────────────────────
-export type TipoSolicitud    = 'NUEVO_LOCAL' | 'NUEVA_TERMINAL' | 'NUEVA_EMPRESA'
+export type TipoSolicitud    = 'NUEVO_LOCAL' | 'NUEVA_TERMINAL'
 export type EstadoSolicitud  = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
 export type TipoMaquina      = 'BOX_SIMPLE' | 'BOX_DUAL' | 'WALL_PARED'
 

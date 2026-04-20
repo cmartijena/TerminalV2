@@ -80,7 +80,7 @@ function MaqSelector({ value, onChange }: { value: MaqEntry[]; onChange: (v:MaqE
   const setCant = (tipo: TipoMaquina, cant: number) => {
     onChange(value.map(m => m.tipo === tipo ? { ...m, cant: Math.max(1, cant) } : m))
   }
-  const total = value.reduce((a, m) => a + m.cant, 0)
+  const total = value.reduce((a, m) => a + (m.tipo === 'BOX_DUAL' ? m.cant * 2 : m.cant), 0)
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7, marginBottom:10 }}>
@@ -109,11 +109,23 @@ function MaqSelector({ value, onChange }: { value: MaqEntry[]; onChange: (v:MaqE
         })}
       </div>
       {total > 0 && (
-        <div style={{ padding:'7px 10px', background:'rgba(124,92,252,0.06)', border:'1px solid rgba(124,92,252,0.2)', borderRadius:8, display:'flex', justifyContent:'space-between' }}>
-          <span style={{ fontSize:9, color:'#7b8db0', fontFamily:'monospace' }}>TOTAL SOLICITADO</span>
-          <span style={{ fontSize:11, color:'#7c5cfc', fontFamily:'monospace', fontWeight:700 }}>
-            {value.map(m => `${m.cant} ${TIPOS_MAQ.find(t=>t.value===m.tipo)?.label}`).join(' + ')} = {total} terminales
-          </span>
+        <div style={{ padding:'7px 10px', background:'rgba(124,92,252,0.06)', border:'1px solid rgba(124,92,252,0.2)', borderRadius:8 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+            <span style={{ fontSize:9, color:'#7b8db0', fontFamily:'monospace' }}>DETALLE</span>
+            <span style={{ fontSize:11, color:'#7c5cfc', fontFamily:'monospace', fontWeight:700 }}>{total} terminales totales</span>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+            {value.map(m => {
+              const termsPorUnidad = m.tipo === 'BOX_DUAL' ? 2 : 1
+              const totalM = m.cant * termsPorUnidad
+              return (
+                <div key={m.tipo} style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:'#7b8db0', fontFamily:'monospace' }}>
+                  <span>{TIPOS_MAQ.find(t=>t.value===m.tipo)?.label} × {m.cant} unid.</span>
+                  <span style={{ color:'#7c5cfc' }}>{totalM} terminal{totalM>1?'es':''}{m.tipo==='BOX_DUAL' ? ' (2 por unidad)' : ''}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -164,7 +176,7 @@ export default function Solicitudes() {
 
   useEffect(() => { if(!loaded) loadAll(); loadSol() }, [])
   useEffect(() => { if(miEmpNombre) setEmp(miEmpNombre) }, [miEmpNombre])
-  useEffect(() => { setMaq([]); setAgSel(''); setDept('') }, [tipo])
+  useEffect(() => { setMaq([]); setAgSel(''); setDept(''); setAgNom(''); setAgEnc(''); setAgTel(''); setAgCor(''); setAgDir(''); setAgMaps('') }, [tipo])
 
   // Agrupación por departamento
   const deptos = Array.from(new Set(agencias.map(a=>a.sucursal).filter(Boolean))).sort()
@@ -254,7 +266,7 @@ export default function Solicitudes() {
               {([
                 { v:'NUEVO_LOCAL',    l:'Nuevo Local',    icon:<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>, c:'#00e5a0' },
                 { v:'NUEVA_TERMINAL', l:'Nuevo Terminal',  icon:<><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></>, c:'#4f8ef7' },
-                { v:'NUEVA_EMPRESA',  l:'Nueva Empresa',  icon:<path d="M12 22V12M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/>, c:'#7c5cfc' },
+
               ] as const).map(t => (
                 <div key={t.v} onClick={()=>setTipo(t.v as TipoSolicitud)}
                   style={{ padding:'10px 8px', borderRadius:9, cursor:'pointer', textAlign:'center',
@@ -347,35 +359,55 @@ export default function Solicitudes() {
             )}
           </>)}
 
-          {/* ── NUEVA EMPRESA ── */}
-          {tipo==='NUEVA_EMPRESA' && (<>
-            <SecHeader color="#7c5cfc" label="DATOS DE LA NUEVA EMPRESA"
-              icon={<path d="M12 22V12M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/>}/>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-              <F label="NOMBRE DE LA EMPRESA *">
-                <input value={agNombre} onChange={e=>setAgNom(e.target.value)} placeholder="Razón social" style={inp}/>
-              </F>
-              <F label="NOMBRE DEL REPRESENTANTE *">
-                <input value={agEnc} onChange={e=>setAgEnc(e.target.value)} placeholder="Nombre completo" style={inp}/>
-              </F>
-              <F label="TELÉFONO" half>
-                <input value={agTel} onChange={e=>setAgTel(e.target.value)} placeholder="+51 999 999 999" style={inp}/>
-              </F>
-              <F label="CORREO CORPORATIVO" half>
-                <input value={agCorreo} onChange={e=>setAgCor(e.target.value)} placeholder="empresa@correo.com" style={inp}/>
-              </F>
-              <F label="DIRECCIÓN PRINCIPAL">
-                <input value={agDir} onChange={e=>setAgDir(e.target.value)} placeholder="Sede principal" style={inp}/>
-              </F>
-              <F label="RUC / DOCUMENTO">
-                <input value={agMaps} onChange={e=>setAgMaps(e.target.value)} placeholder="20XXXXXXXXX" style={inp}/>
-              </F>
-            </div>
-          </>)}
+
 
           {/* ── Equipamiento ── */}
           <SecHeader color="#7c5cfc" label="EQUIPAMIENTO SOLICITADO"
             icon={<><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></>}/>
+          {/* Stock disponible */}
+          {(() => {
+            const stockDisp = terminales.filter(t => (t.estado as string) === 'NO DISPONIBLE').length
+            const hasStock  = stockDisp > 0
+            return (
+              <div style={{ marginBottom:10 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 11px',
+                  background: hasStock ? 'rgba(0,229,160,0.06)' : 'rgba(247,37,100,0.06)',
+                  border: `1px solid ${hasStock ? 'rgba(0,229,160,0.2)' : 'rgba(247,37,100,0.2)'}`,
+                  borderRadius:8, marginBottom:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background: hasStock ? '#00e5a0' : '#f72564' }}/>
+                    <span style={{ fontSize:10, color: hasStock ? '#00e5a0' : '#f72564', fontFamily:'monospace', fontWeight:600 }}>
+                      {hasStock ? `${stockDisp} terminales disponibles en stock` : 'SIN STOCK DISPONIBLE'}
+                    </span>
+                  </div>
+                  {!hasStock && (
+                    <button onClick={() => {
+                      const subject = encodeURIComponent('Consulta de stock de terminales - TerminalOS')
+                      const body = encodeURIComponent(`Estimado equipo,
+
+Soy ${user?.nombre} de la empresa ${miEmpNombre}.
+Actualmente el sistema indica 0 terminales disponibles en stock.
+
+Solicito información sobre disponibilidad y tiempo de entrega.
+
+Saludos.`)
+                      window.open(`mailto:contacto@electriclineperu.com?subject=${subject}&body=${body}`)
+                    }} style={{ padding:'4px 10px', borderRadius:6, fontSize:9, fontFamily:'monospace',
+                      background:'rgba(247,37,100,0.1)', border:'1px solid rgba(247,37,100,0.3)',
+                      color:'#f72564', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+                      Consultar stock
+                    </button>
+                  )}
+                </div>
+                {!hasStock && (
+                  <p style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace', textAlign:'center', marginBottom:8 }}>
+                    No hay terminales disponibles. Puedes enviar igual tu solicitud y el administrador la revisará.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
           <MaqSelector value={maquinas} onChange={setMaq}/>
 
           {/* Notas */}

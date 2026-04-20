@@ -27,7 +27,7 @@ export const useSolicitudes = create<SolicitudState>((set, get) => ({
         set({
           solicitudes: data.map((r: any): Solicitud => ({
             id: r.id, _id: r.id,
-            tipo:   r.tipo   || 'NUEVO_LOCAL',
+            tipo:   (r.tipo === 'NUEVO_LOCAL' || r.tipo === 'NUEVA_TERMINAL' ? r.tipo : 'NUEVO_LOCAL') as any,
             estado: r.estado || 'PENDIENTE',
             empresa:    r.empresa    || '',
             empresa_id: r.empresa_id || '',

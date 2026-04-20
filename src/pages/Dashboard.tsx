@@ -324,20 +324,32 @@ export default function Dashboard() {
   const rol        = user?.rol || 'TECNICO'
   const notifs     = forRole(rol as any).slice(0, 5)
   const canSeeWAM  = ['ADMINISTRADOR', 'DIRECTIVO'].includes(rol)
-  const totalTerms = terminales.length  || 245
-  const enProd     = terminales.filter(t => t.estado === 'ACTIVO').length
+  const isFranq    = rol === 'FRANQUICIADO'
+
+  // Franquiciado — filtrar todo por su empresa
+  const miEmpresa   = isFranq ? (user?.empresas?.[0] || '') : ''
+  const miEmpObj    = isFranq ? empresas.find(e => e.nombre === miEmpresa || e._id === miEmpresa) : null
+  const miEmpNombre = miEmpObj?.nombre || miEmpresa
+
+  // Filtros según rol
+  const misAgencias   = isFranq ? agencias.filter(a => a.empresa === miEmpNombre)  : agencias
+  const misTerminales = isFranq ? terminales.filter(t => t.empresa === miEmpNombre) : terminales
+  const misEmpresas   = isFranq ? (miEmpObj ? [miEmpObj] : []) : empresas
+
+  const totalTerms = misTerminales.length  || (isFranq ? 0 : 245)
+  const enProd     = misTerminales.filter(t => t.estado === 'ACTIVO').length
   const online     = enProd
   // offline removed — using estado field directly
-  const topTerms   = [...terminales].sort((ta, tb) => {
+  const topTerms   = [...misTerminales].sort((ta, tb) => {
     const ord = ['ACTIVO', 'NO DISPONIBLE']
     const ai  = ord.indexOf(ta.estado as string)
     const bi  = ord.indexOf(tb.estado as string)
     return (ai < 0 ? 9 : ai) - (bi < 0 ? 9 : bi)
   })
 
-  const empData = empresas.map((e, i) => ({
+  const empData = misEmpresas.map((e, i) => ({
     name:  e.nombre,
-    value: terminales.filter(t => t.empresa === e.nombre).length || 30 + i * 15,
+    value: misTerminales.filter(t => t.empresa === e.nombre).length || 30 + i * 15,
     color: PIE_COLORS[i % PIE_COLORS.length],
   })).filter(d => d.value > 0)
 
@@ -370,7 +382,7 @@ export default function Dashboard() {
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: '#e8eeff' }}>Dashboard ejecutivo</h1>
+          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: '#e8eeff' }}>{isFranq ? `Portal · ${miEmpNombre}` : 'Dashboard ejecutivo'}</h1>
           <p style={{ margin: '3px 0 0', fontSize: 10, color: '#7b8db0', fontFamily: 'monospace' }}>
             {now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}
             {' · '}<span style={{ color: '#00e5a0' }}>{now.toLocaleTimeString('es-PE')}</span>
@@ -436,11 +448,11 @@ export default function Dashboard() {
         {/* Panel Opción A — 4 KPIs operacionales */}
         {(() => {
           const solicitCount = solPend()
-          const sedesPend    = agencias.filter(a => a.estado === 'PENDIENTE')
+          const sedesPend    = misAgencias.filter(a => a.estado === 'PENDIENTE')
           const kpis = [
-            { label: 'EMPRESAS',   value: loaded ? empresas.length : 0,   color: '#00e5a0', sub: `${empresas.length} operadores`, icon: <path d="M12 22V12M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/> },
-            { label: 'SEDES',      value: loaded ? agencias.length : 0,    color: '#4f8ef7', sub: `${agencias.filter(a=>a.estado==='EN PRODUCCION').length} en producción`, icon: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></> },
-            { label: 'TERMINALES', value: loaded ? totalTerms : 0,         color: '#7c5cfc', sub: `${enProd} activas · ${totalTerms-enProd} N/D`, icon: <><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></> },
+            { label: isFranq ? 'MI EMPRESA' : 'EMPRESAS',   value: loaded ? misEmpresas.length : 0,   color: '#00e5a0', sub: isFranq ? miEmpNombre : `${misEmpresas.length} operadores`, icon: <path d="M12 22V12M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/> },
+            { label: isFranq ? 'MIS LOCALES' : 'SEDES',      value: loaded ? misAgencias.length : 0,    color: '#4f8ef7', sub: `${misAgencias.filter(a=>a.estado==='EN PRODUCCION').length} en producción`, icon: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></> },
+            { label: isFranq ? 'MIS TERMINALES' : 'TERMINALES', value: loaded ? totalTerms : 0,         color: '#7c5cfc', sub: `${enProd} activas · ${totalTerms-enProd} N/D`, icon: <><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></> },
             { label: 'SOLICITUDES',value: solicitCount,                    color: solicitCount > 0 ? '#f7931a' : '#3d4f73', sub: solicitCount > 0 ? `${solicitCount} pendiente${solicitCount>1?'s':''}` : 'sin pendientes', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></> },
           ]
           return (
@@ -493,12 +505,12 @@ export default function Dashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div>
               <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Mapa de sedes</p>
-              <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>{agencias.length || 48} agencias · Lima y Trujillo</p>
+              <p style={{ margin: '2px 0 0', fontSize: 9, color: '#7b8db0', fontFamily: 'monospace' }}>{misAgencias.length} agencia{misAgencias.length!==1?'s':''} · {isFranq ? miEmpNombre : 'Lima y Trujillo'}</p>
             </div>
             <span style={{ fontSize: 8, background: 'rgba(0,229,160,0.1)', color: '#00e5a0', border: '1px solid rgba(0,229,160,0.2)', padding: '2px 7px', borderRadius: 10, fontFamily: 'monospace' }}>LIVE</span>
           </div>
           <div style={{ flex: 1, minHeight: 180 }}>
-            <MapaAgencias agencias={agencias} empresas={empresas} terminales={terminales} />
+            <MapaAgencias agencias={misAgencias} empresas={misEmpresas} terminales={misTerminales} />
           </div>
         </div>
 
@@ -508,7 +520,7 @@ export default function Dashboard() {
             <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: '#e8eeff' }}>Estado de flota</p>
             <div style={{ display: 'flex', justifyContent: 'space-around' }}>
               <RadialKpi value={enProd}           max={totalTerms}    color="#00e5a0" label="Activas"  />
-              <RadialKpi value={terminales.filter(t=>(t.estado as string)==='NO DISPONIBLE').length} max={totalTerms} color="#f72564" label="Inactivas" />
+              <RadialKpi value={misTerminales.filter(t=>(t.estado as string)==='NO DISPONIBLE').length} max={totalTerms} color="#f72564" label="Inactivas" />
               <RadialKpi value={empresas.length || 5} max={10}       color="#7c5cfc" label="Empresas" />
             </div>
           </div>
@@ -576,7 +588,7 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={95}>
             <PieChart>
               <Pie
-                data={empData.length > 0 ? empData : [{ name: 'Sin datos', value: 1, color: '#1e2d4a' }]}
+                data={empData.length > 0 ? empData : [{ name: isFranq ? miEmpNombre : 'Sin datos', value: 1, color: '#1e2d4a' }]}
                 cx="50%" cy="50%" innerRadius={24} outerRadius={42} paddingAngle={3} dataKey="value"
               >
                 {(empData.length > 0 ? empData : [{ color: '#1e2d4a' }]).map((d: any, i: number) => (

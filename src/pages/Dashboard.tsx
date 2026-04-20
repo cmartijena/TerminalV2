@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useAuth } from '../store/auth'
@@ -110,7 +110,7 @@ function getCoords(ag: any): [number, number] {
 }
 
 // ── Mapa component — Estilo C: Positron invertido + pins con número ─────
-function MapaAgencias({ agencias, empresas, terminales }: any) {
+const MapaAgencias = React.memo(function MapaAgencias({ agencias, empresas, terminales }: any) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
 
@@ -249,8 +249,7 @@ function MapaAgencias({ agencias, empresas, terminales }: any) {
       </div>
     </div>
   )
-}
-
+})
 
 // ── Sparkline ──────────────────────────────────────────
 function Sparkline({ color, positive = true }: { color: string; positive?: boolean }) {
@@ -292,6 +291,24 @@ const NOTIF_BG     : Record<string, string> = { danger: 'rgba(247,37,100,0.12)',
 const NOTIF_COLOR  : Record<string, string> = { danger: '#f72564', warn: '#f7931a', info: '#4f8ef7', success: '#00e5a0' }
 const fmt = (n: number) => `S/ ${Math.round(n).toLocaleString('es-PE')}`
 
+// ── Reloj vivo — componente separado para evitar re-renders del mapa ─────────
+function RelojVivo({ isFranq, nombre }: { isFranq: boolean; nombre: string }) {
+  const [now, setNow] = React.useState(new Date())
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <p style={{ margin: '3px 0 0', fontSize: 10, color: '#7b8db0', fontFamily: 'monospace' }}>
+      {isFranq
+        ? `Panel de ${nombre}`
+        : now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}
+      {' · '}<span style={{ color: '#00e5a0' }}>{now.toLocaleTimeString('es-PE')}</span>
+      {' · en vivo'}
+    </p>
+  )
+}
+
 // ── Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
   const user                              = useAuth(s => s.user)
@@ -302,7 +319,6 @@ export default function Dashboard() {
 
   const [wam, setWam]       = useState({ in: 0, out: 0, bal: 0, regs: 0 })
   const [wamLoad, setWL]    = useState(false)
-  const [now, setNow]       = useState(new Date())
 
   const rol        = user?.rol || 'TECNICO'
   const notifs     = forRole(rol as any).slice(0, 5)
@@ -343,11 +359,6 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
     if (!canSeeWAM) return
     setWL(true)
     const base   = WAM_API_URL.replace(/\/$/, '')
@@ -366,11 +377,7 @@ export default function Dashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: '#e8eeff' }}>{isFranq ? `Portal · ${miEmpNombre}` : 'Dashboard ejecutivo'}</h1>
-          <p style={{ margin: '3px 0 0', fontSize: 10, color: '#7b8db0', fontFamily: 'monospace' }}>
-            {now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {' · '}<span style={{ color: '#00e5a0' }}>{now.toLocaleTimeString('es-PE')}</span>
-            {' · en vivo'}
-          </p>
+          <RelojVivo isFranq={isFranq} nombre={user?.nombre||''} />
         </div>
 
       </div>

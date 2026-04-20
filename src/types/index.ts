@@ -158,26 +158,40 @@ export interface DB {
   accesosWAM: AccesoWAM[]
 }
 // ── Solicitud ─────────────────────────────────────────
-export type TipoSolicitud = 'NUEVO_LOCAL' | 'NUEVA_TERMINAL' | 'NUEVA_EMPRESA'
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+export type TipoSolicitud    = 'NUEVO_LOCAL' | 'NUEVA_TERMINAL' | 'NUEVA_EMPRESA'
+export type EstadoSolicitud  = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+export type TipoMaquina      = 'BOX_SIMPLE' | 'BOX_DUAL' | 'WALL_PARED'
 
 export interface Solicitud {
   id?: string
   _id?: string
+  // Tipo y estado
   tipo: TipoSolicitud
+  estado: EstadoSolicitud
+  // Datos de la empresa franquiciada
   empresa: string
   empresa_id?: string
-  encargado: string
-  correo: string
+  // Datos del franquiciado
+  franquiciado_nombre: string
+  franquiciado_correo: string
+  franquiciado_telefono: string
+  franquiciado_cargo: string
+  // Datos del nuevo local
+  agencia_nombre: string
   direccion: string
+  maps_link?: string
   lat?: number
   lng?: number
+  // Equipamiento solicitado
   cant_terminales: number
+  tipo_maquina: TipoMaquina
   notas?: string
-  estado: EstadoSolicitud
+  // Solicitante del sistema
   solicitante_id?: string
   solicitante_nombre?: string
+  // Gestión
   motivo_rechazo?: string
+  aprobado_por?: string
   created_at?: string
   updated_at?: string
 }

@@ -4,6 +4,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Solicitudes from './pages/Solicitudes'
+import Agencias    from './pages/Agencias'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-5">
@@ -21,7 +22,7 @@ export default function App() {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/dashboard"   element={<Dashboard />} />
           <Route path="/terminales"  element={<Placeholder title="Terminales" />} />
-          <Route path="/agencias"    element={<Placeholder title="Agencias" />} />
+          <Route path="/agencias"    element={<Agencias />} />
           <Route path="/empresas"    element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Empresas" /></ProtectedRoute>} />
           <Route path="/wam"         element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Reportería WAM" /></ProtectedRoute>} />
           <Route path="/egm"         element={<Placeholder title="Usuarios EGM" />} />

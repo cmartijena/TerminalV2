@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Solicitudes from './pages/Solicitudes'
 import Agencias    from './pages/Agencias'
+import Terminales  from './pages/Terminales'
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-5">
@@ -21,7 +22,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/dashboard"   element={<Dashboard />} />
-          <Route path="/terminales"  element={<Placeholder title="Terminales" />} />
+          <Route path="/terminales"  element={<Terminales />} />
           <Route path="/agencias"    element={<Agencias />} />
           <Route path="/empresas"    element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Empresas" /></ProtectedRoute>} />
           <Route path="/wam"         element={<ProtectedRoute roles={['ADMINISTRADOR','DIRECTIVO']}><Placeholder title="Reportería WAM" /></ProtectedRoute>} />

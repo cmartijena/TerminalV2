@@ -5,12 +5,12 @@ import { useTerminalOps } from '../store/terminalOps'
 
 const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
 const EST: Record<string,{color:string;label:string}> = {
-  'ACTIVO':        { color:'#00e5a0', label:'ACTIVO'  },
-  'NO DISPONIBLE': { color:'#f72564', label:'N/DISP'  },
-  'EN PRODUCCION': { color:'#00e5a0', label:'EN PROD' },
-  'DISPONIBLE':    { color:'#4f8ef7', label:'DISP'    },
+  'DISPONIBLE':    { color:'#00e5a0', label:'STOCK'   },  // en stock, lista para asignar
+  'ASIGNADA':      { color:'#4f8ef7', label:'ASIGNAD' },  // asignada a empresa, agencia no activa aún
+  'ACTIVO':        { color:'#7c5cfc', label:'ACTIVO'  },  // en producción, agencia activa
   'EN REPARACION': { color:'#f7931a', label:'REPARA'  },
   'BAJA':          { color:'#3d4f73', label:'BAJA'    },
+  'NO DISPONIBLE': { color:'#f72564', label:'N/DISP'  },  // legacy
 }
 const MOD: Record<string,{color:string;short:string}> = {
   'BOXDUAL':    { color:'#7c5cfc', short:'DUAL'   },
@@ -18,7 +18,7 @@ const MOD: Record<string,{color:string;short:string}> = {
   'WALL':       { color:'#f7931a', short:'WALL'   },
 }
 const MODELOS = ['BOXDUAL','BOX SIMPLE','WALL'] as const
-const ESTADOS_EDIT = ['ACTIVO','NO DISPONIBLE','EN REPARACION','BAJA'] as const
+const ESTADOS_EDIT = ['DISPONIBLE','ASIGNADA','ACTIVO','EN REPARACION','BAJA'] as const
 
 const S = {
   page: { padding:'20px 24px', background:'#0a0e1a', minHeight:'100vh' } as React.CSSProperties,
@@ -78,7 +78,7 @@ function ModalCrear({ agencias, onClose, onDone }: { agencias:any[]; onClose:()=
   const handleUno = async () => {
     if (!codigo.trim()) { setErr('Ingresa el código'); return }
     setSav(true); setErr('')
-    const res = await crear({ codigo, modelo, serie, agencia_id: agId||null, estado: agId?'ACTIVO':'NO DISPONIBLE', observacion:obs })
+    const res = await crear({ codigo, modelo, serie, agencia_id: agId||null, estado: agId?'ASIGNADA':'DISPONIBLE', observacion:obs })
     setSav(false)
     if (res.ok) { setOk(true); setCod(''); setSerie(''); setObs(''); setTimeout(onDone, 1200) }
     else setErr(res.error||'Error')
@@ -265,7 +265,7 @@ function ModalAccion({
               ))}
             </select>
             <div style={{ padding:'8px 11px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.18)', borderRadius:8, fontSize:9, color:'#00e5a0', fontFamily:'monospace' }}>
-              {agId ? 'Al asignar, el estado cambiará a ACTIVO automáticamente' : 'Sin agencia = estado NO DISPONIBLE (stock)'}
+              {agId ? 'Al asignar, el estado cambiará a ASIGNADA. Pasará a ACTIVO cuando la agencia esté en producción.' : 'Sin empresa = estado DISPONIBLE (vuelve a stock)'}
             </div>
           </>
         )}
@@ -375,11 +375,12 @@ export default function Terminales() {
   const stats = useMemo(() => {
     const total   = visibles.length
     const activo  = visibles.filter(t=>(t.estado as string)==='ACTIVO').length
-    const noDisp  = visibles.filter(t=>(t.estado as string)==='NO DISPONIBLE').length
+    const asig    = visibles.filter(t=>(t.estado as string)==='ASIGNADA').length
+    const noDisp  = visibles.filter(t=>(t.estado as string)==='DISPONIBLE').length
     const boxdual = visibles.filter(t=>t.modelo==='BOXDUAL').length
     const wall    = visibles.filter(t=>t.modelo==='WALL').length
     const simple  = visibles.filter(t=>t.modelo==='BOX SIMPLE').length
-    return { total, activo, noDisp, boxdual, wall, simple }
+    return { total, activo, asig, noDisp, boxdual, wall, simple }
   }, [visibles])
 
   // Stock disponible (sin agencia asignada) — sincronizado con solicitudes
@@ -421,7 +422,7 @@ export default function Terminales() {
             {isFranq?`Terminales · ${miEmpNombre}`:'Terminales'}
           </h1>
           <p style={{ margin:'3px 0 0', fontSize:10, color:'#7b8db0', fontFamily:'monospace' }}>
-            {loaded?`${stats.total} terminales · ${stats.activo} activas · ${stats.noDisp} en stock`:'Cargando...'}
+            {loaded?`${stats.total} terminales · ${stats.activo} en producción · ${stats.asig} asignadas · ${stats.noDisp} en stock`:'Cargando...'}
           </p>
         </div>
         {isAdmin && (
@@ -439,9 +440,9 @@ export default function Terminales() {
       <div style={{ ...S.card, padding:'11px 15px', marginBottom:12, borderColor: Object.values(stock).every(v=>v===0)?'rgba(247,37,100,0.3)':'#1e2d4a' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:7, height:7, borderRadius:'50%', background: Object.values(stock).every(v=>v===0)?'#f72564':'#00e5a0' }}/>
+            <div style={{ width:7, height:7, borderRadius:'50%', background: Object.values(stock).some(v=>v>0)?'#00e5a0':'#f72564' }}/>
             <span style={{ fontSize:10, fontWeight:600, color:'#e8eeff' }}>Stock disponible para asignación</span>
-            <span style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace' }}>· sincronizado con solicitudes</span>
+            <span style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace' }}>· terminales DISPONIBLES para asignar</span>
           </div>
           <div style={{ display:'flex', gap:10 }}>
             {[
@@ -468,10 +469,10 @@ export default function Terminales() {
         {[
           { l:'TOTAL',    v:stats.total,   c:'#4f8ef7', s:'terminales en flota',
             ico:<><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></> },
-          { l:'ACTIVAS',  v:stats.activo,  c:'#00e5a0', s:`${stats.total>0?Math.round(stats.activo/stats.total*100):0}% de la flota`,
+          { l:'EN PRODUCCIÓN', v:stats.activo,  c:'#00e5a0', s:`agencias activas`,
             ico:<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></> },
-          { l:'STOCK',    v:stats.noDisp,  c:'#f72564', s:'sin asignar',
-            ico:<><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></> },
+          { l:'ASIGNADAS', v:stats.asig, c:'#4f8ef7', s:'sin activar aún',
+            ico:<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></> },
           { l:'BOX DUAL', v:stats.boxdual, c:'#7c5cfc', s:`${stats.simple} box simple`,
             ico:<><rect x="1" y="4" width="9" height="16" rx="1"/><rect x="14" y="4" width="9" height="16" rx="1"/></> },
           { l:'WALL',     v:stats.wall,    c:'#f7931a', s:'montaje en pared',
@@ -541,7 +542,7 @@ export default function Terminales() {
           </div>
           <div style={{ display:'flex', gap:5, marginBottom:12, flexWrap:'wrap', alignItems:'center' }}>
             <span style={{ fontSize:8, color:'#3d4f73', fontFamily:'monospace', marginRight:2 }}>ESTADO:</span>
-            {[['todos','Todas','#4f8ef7'],['ACTIVO','Activas','#00e5a0'],['NO DISPONIBLE','Stock','#f72564'],['EN REPARACION','Reparación','#f7931a'],['BAJA','Baja','#3d4f73']].map(([v,l,c])=>(
+            {[['todos','Todas','#4f8ef7'],['DISPONIBLE','Stock','#00e5a0'],['ASIGNADA','Asignadas','#4f8ef7'],['ACTIVO','En producción','#7c5cfc'],['EN REPARACION','Reparación','#f7931a'],['BAJA','Baja','#3d4f73']].map(([v,l,c])=>(
               <button key={v} onClick={()=>{setFiltEst(v);resetPag()}} style={S.chip(filtEst===v,c)}>{l as string}</button>
             ))}
             <div style={{ width:1, height:18, background:'#1e2d4a', margin:'0 4px' }}/>
@@ -670,12 +671,12 @@ export default function Terminales() {
                 {agDet.direccion&&<div style={{ marginTop:6 }}><div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:1 }}>DIRECCIÓN</div><div style={{ fontSize:10, color:'#7b8db0', lineHeight:1.4 }}>{agDet.direccion}</div></div>}
               </div>
             ) : (
-              <div style={{ background:'rgba(247,37,100,0.05)', border:'1px solid rgba(247,37,100,0.15)', borderRadius:9, padding:'10px 13px', marginBottom:12 }}>
+              <div style={{ background:'rgba(0,229,160,0.04)', border:'1px solid rgba(0,229,160,0.15)', borderRadius:9, padding:'10px 13px', marginBottom:12 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:7 }}>
                   <div style={{ width:6, height:6, borderRadius:'50%', background:'#f72564', flexShrink:0 }}/>
-                  <span style={{ fontSize:10, color:'#f72564', fontFamily:'monospace' }}>En stock · sin agencia asignada</span>
+                  <span style={{ fontSize:10, color:'#00e5a0', fontFamily:'monospace' }}>DISPONIBLE · en stock para asignar</span>
                 </div>
-                <p style={{ fontSize:9, color:'#3d4f73', margin:'4px 0 0', fontFamily:'monospace' }}>Disponible para asignación o solicitudes</p>
+                <p style={{ fontSize:9, color:'#3d4f73', margin:'4px 0 0', fontFamily:'monospace' }}>Lista para asignar a una empresa o cubrir una solicitud</p>
               </div>
             )}
 

@@ -78,7 +78,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   const rol = user?.rol || 'TECNICO'
   const count = unread(rol as any)
   const { terminales } = useDB()
-  const offlineCount = terminales.filter(t => t.estado === 'EN PRODUCCION' && !t.wam_online).length
+  const offlineCount = terminales.filter(t => (t.estado as string) === 'ACTIVO' && !t.agencia_id).length
   const { pendientes: solPend } = useSolicitudes()
   const solicPendCount = solPend()
 

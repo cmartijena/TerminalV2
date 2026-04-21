@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import { supa } from '../lib/supabase'
 
-type EstadoT = 'ACTIVO' | 'NO DISPONIBLE' | 'EN REPARACION' | 'BAJA'
+type EstadoT = 'DISPONIBLE' | 'ASIGNADA' | 'ACTIVO' | 'EN REPARACION' | 'BAJA'
 
 export interface TerminalOp {
   id?: string
   codigo: string
   modelo: 'BOXDUAL' | 'BOX SIMPLE' | 'WALL'
   serie?: string
-  estado: EstadoT
+  estado?: EstadoT
   agencia_id?: string | null
   observacion?: string
 }
@@ -33,7 +33,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
         codigo:     t.codigo.toUpperCase().trim(),
         modelo:     t.modelo,
         serie:      t.serie || null,
-        estado:     t.estado || 'NO DISPONIBLE',
+        estado:     t.estado || 'DISPONIBLE',
         agencia_id: t.agencia_id || null,
         observacion: t.observacion || null,
       }])
@@ -48,7 +48,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
         codigo:     cod.toUpperCase().trim(),
         modelo,
         serie:      serie_base ? `${serie_base}-${String(i+1).padStart(3,'0')}` : null,
-        estado:     'NO DISPONIBLE',
+        estado:     'DISPONIBLE',
         agencia_id: null,
       }))
       const { error, data } = await supa.from('terminales').insert(rows).select()
@@ -72,7 +72,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
       const { error } = await supa.from('terminales')
         .update({
           agencia_id,
-          estado: agencia_id ? 'ACTIVO' : 'NO DISPONIBLE',
+          estado: agencia_id ? 'ASIGNADA' : 'DISPONIBLE',
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -85,7 +85,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
     try {
       const campos: any = { estado, updated_at: new Date().toISOString() }
       if (observacion) campos.observacion = observacion
-      if (estado === 'NO DISPONIBLE' || estado === 'BAJA') campos.agencia_id = null
+      if (estado === 'DISPONIBLE' || estado === 'BAJA') campos.agencia_id = null
       const { error } = await supa.from('terminales').update(campos).eq('id', id)
       if (error) return { ok: false, error: error.message }
       return { ok: true }
@@ -106,7 +106,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
   stockPorModelo: (terminales) => {
     const stock: Record<string, number> = { BOXDUAL: 0, 'BOX SIMPLE': 0, WALL: 0 }
     terminales
-      .filter(t => (t.estado as string) === 'NO DISPONIBLE' && !t.agencia_id)
+      .filter(t => (t.estado as string) === 'DISPONIBLE')
       .forEach(t => { if (t.modelo in stock) stock[t.modelo]++ })
     return stock
   },

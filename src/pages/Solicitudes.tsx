@@ -364,47 +364,45 @@ export default function Solicitudes() {
           {/* ── Equipamiento ── */}
           <SecHeader color="#7c5cfc" label="EQUIPAMIENTO SOLICITADO"
             icon={<><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></>}/>
-          {/* Stock disponible */}
+          {/* Stock disponible por modelo */}
           {(() => {
-            const stockDisp = terminales.filter(t => (t.estado as string) === 'NO DISPONIBLE').length
-            const hasStock  = stockDisp > 0
+            const stockMod: Record<string,number> = { BOXDUAL: 0, 'BOX SIMPLE': 0, WALL: 0 }
+            terminales.filter(t=>(t.estado as string)==='DISPONIBLE').forEach(t=>{if(t.modelo in stockMod) stockMod[t.modelo]++})
+            const stockTotal = Object.values(stockMod).reduce((a,b)=>a+b,0)
+            const hayStock   = stockTotal > 0
             return (
-              <div style={{ marginBottom:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 11px',
-                  background: hasStock ? 'rgba(0,229,160,0.06)' : 'rgba(247,37,100,0.06)',
-                  border: `1px solid ${hasStock ? 'rgba(0,229,160,0.2)' : 'rgba(247,37,100,0.2)'}`,
-                  borderRadius:8, marginBottom:8 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background: hasStock ? '#00e5a0' : '#f72564' }}/>
-                    <span style={{ fontSize:10, color: hasStock ? '#00e5a0' : '#f72564', fontFamily:'monospace', fontWeight:600 }}>
-                      {hasStock ? `${stockDisp} terminales disponibles en stock` : 'SIN STOCK DISPONIBLE'}
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ width:6, height:6, borderRadius:'50%', background:hayStock?'#00e5a0':'#f72564' }}/>
+                    <span style={{ fontSize:9, color:hayStock?'#00e5a0':'#f72564', fontFamily:'monospace', fontWeight:700 }}>
+                      {hayStock ? `${stockTotal} terminales DISPONIBLES en stock` : 'SIN STOCK DISPONIBLE'}
                     </span>
                   </div>
-                  {!hasStock && (
+                  {!hayStock && (
                     <button onClick={() => {
                       const subject = encodeURIComponent('Consulta de stock de terminales - TerminalOS')
-                      const body = encodeURIComponent(`Estimado equipo,
-
-Soy ${user?.nombre} de la empresa ${miEmpNombre}.
-Actualmente el sistema indica 0 terminales disponibles en stock.
-
-Solicito información sobre disponibilidad y tiempo de entrega.
-
-Saludos.`)
+                      const body = encodeURIComponent(`Soy ${user?.nombre} de ${miEmpNombre}. No hay stock. Solicito disponibilidad.`)
                       window.open(`mailto:contacto@electriclineperu.com?subject=${subject}&body=${body}`)
-                    }} style={{ padding:'4px 10px', borderRadius:6, fontSize:9, fontFamily:'monospace',
+                    }} style={{ padding:'3px 9px', borderRadius:6, fontSize:8, fontFamily:'monospace',
                       background:'rgba(247,37,100,0.1)', border:'1px solid rgba(247,37,100,0.3)',
-                      color:'#f72564', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
-                      Consultar stock
-                    </button>
+                      color:'#f72564', cursor:'pointer' }}>✉ Consultar</button>
                   )}
                 </div>
-                {!hasStock && (
-                  <p style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace', textAlign:'center', marginBottom:8 }}>
-                    No hay terminales disponibles. Puedes enviar igual tu solicitud y el administrador la revisará.
-                  </p>
-                )}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:7 }}>
+                  {([['BOXDUAL','Box Dual','#7c5cfc'],['BOX SIMPLE','Box Simple','#4f8ef7'],['WALL','Wall','#f7931a']] as const).map(([k,l,col])=>(
+                    <div key={k} style={{ padding:'9px 10px', borderRadius:9, textAlign:'center',
+                      background: stockMod[k]>0 ? `${col}10` : 'rgba(247,37,100,0.05)',
+                      border: `1px solid ${stockMod[k]>0 ? col+'35' : 'rgba(247,37,100,0.2)'}` }}>
+                      <div style={{ fontSize:7, color:'#7b8db0', fontFamily:'monospace', marginBottom:3 }}>{l}</div>
+                      <div style={{ fontSize:22, fontWeight:800, color:stockMod[k]>0?col:'#f72564', lineHeight:1 }}>{stockMod[k]}</div>
+                      <div style={{ fontSize:7, color:stockMod[k]>0?col+'aa':'#f72564', fontFamily:'monospace', marginTop:3 }}>
+                        {stockMod[k]>0?'disponible':'sin stock'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {!hayStock && <p style={{ fontSize:9, color:'#3d4f73', fontFamily:'monospace', textAlign:'center', marginTop:7 }}>Puedes enviar la solicitud de todas formas y el admin la gestionará.</p>}
               </div>
             )
           })()}

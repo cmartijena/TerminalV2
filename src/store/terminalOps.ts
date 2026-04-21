@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supa } from '../lib/supabase'
 
-type EstadoT = 'DISPONIBLE' | 'ASIGNADA' | 'ACTIVO' | 'EN REPARACION' | 'BAJA'
+type EstadoT = 'DISPONIBLE' | 'ASIGNADA' | 'ACTIVO' | 'NO DISPONIBLE' | 'EN REPARACION' | 'BAJA'
 
 export interface TerminalOp {
   id?: string
@@ -85,7 +85,7 @@ export const useTerminalOps = create<TerminalStore>((_set, _get) => ({
     try {
       const campos: any = { estado, updated_at: new Date().toISOString() }
       if (observacion) campos.observacion = observacion
-      if (estado === 'DISPONIBLE' || estado === 'BAJA') campos.agencia_id = null
+      if (estado === 'DISPONIBLE' || estado === 'NO DISPONIBLE' || estado === 'BAJA') campos.agencia_id = null
       const { error } = await supa.from('terminales').update(campos).eq('id', id)
       if (error) return { ok: false, error: error.message }
       return { ok: true }

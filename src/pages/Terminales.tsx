@@ -325,145 +325,264 @@ function ModalNueva({ agencias, onClose, onDone }: { agencias:any[]; onClose:()=
 }
 
 // ── Detalle inline expandido ──────────────────────────────────────────────────
-function DetalleInline({ term, agencias, empresas, isAdmin, onAccion }: {
-  term:any; agencias:any[]; empresas:any[]; isAdmin:boolean;
-  onAccion:(accion:'estado'|'asignar'|'baja',term:any)=>void
-}) {
-  const agDet    = agencias.find(a=>a.id_sub===term.id_sub)
-  const empDetIdx= empresas.findIndex(e=>e.nombre===term.empresa)
-  const empCol   = EMP_COLS[empDetIdx>=0?empDetIdx%EMP_COLS.length:0]
-  const estDet   = EST[term.estado as string]||{color:'#3d4f73',bg:'#141d35',label:term.estado}
-  const historial= [
-    { ev:'Estado cambiado',  det:`${term.estado}`, color:'#00e5a0', ts:'Hoy 09:14', by:'Admin'  },
-    { ev:'Agencia asignada', det:agDet?agDet.subagencia:'Sin agencia', color:'#4f8ef7', ts:'Hace 5d', by:'Admin' },
-    { ev:'Terminal creada',  det:'Registrada en sistema', color:'#7c5cfc', ts:'Hace 12d', by:'Sistema' },
-  ]
-
+// ── Sección label con línea decorativa ───────────────────────────────────────
+function SecLabel({ label, color }: { label: string; color: string }) {
   return (
-    <div style={{background:'rgba(8,12,28,0.95)',borderTop:'1px solid rgba(79,142,247,0.2)',
-      borderBottom:'1px solid rgba(79,142,247,0.15)',padding:'16px 20px'}}>
-
-      {/* FILA SUPERIOR: Terminal + Agencia */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:14}}>
-
-        {/* Datos terminal */}
-        <div>
-          <div style={{fontSize:8,color:'#4f8ef7',fontFamily:'monospace',fontWeight:700,letterSpacing:1.5,marginBottom:10}}>DATOS DE LA TERMINAL</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
-            <div style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>CÓDIGO</div>
-              <div style={{fontSize:10,color:'#00e5a0',fontFamily:'monospace',fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{term.codigo}</div>
-            </div>
-            <div style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>MODELO</div>
-              <div style={{fontSize:10,color:MOD_COLOR[term.modelo]||'#4f8ef7',fontFamily:'monospace',fontWeight:700}}>{term.modelo||'—'}</div>
-            </div>
-            <div style={{background:estDet.bg,border:`1px solid ${estDet.color}30`,borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>ESTADO</div>
-              <div style={{fontSize:9,color:estDet.color,fontFamily:'monospace',fontWeight:700}}>{estDet.label}</div>
-            </div>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:6}}>
-            <div style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>SERIE</div>
-              <div style={{fontSize:10,color:'#e8eeff',fontFamily:'monospace'}}>{term.serie||'—'}</div>
-            </div>
-            <div style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>EMPRESA</div>
-              <div style={{fontSize:10,color:empCol,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{term.empresa||'—'}</div>
-            </div>
-          </div>
-          {term.observacion&&(
-            <div style={{marginTop:6,background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>OBSERVACIÓN</div>
-              <div style={{fontSize:10,color:'#7b8db0',lineHeight:1.5}}>{term.observacion}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Agencia asignada */}
-        <div>
-          <div style={{fontSize:8,color:'#7c5cfc',fontFamily:'monospace',fontWeight:700,letterSpacing:1.5,marginBottom:10}}>AGENCIA ASIGNADA</div>
-          {agDet ? (
-            <div style={{background:'rgba(124,92,252,0.06)',border:'1px solid rgba(124,92,252,0.2)',borderRadius:9,padding:'12px 14px',height:'calc(100% - 28px)'}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-                {[{l:'LOCAL',v:agDet.subagencia},{l:'DEPARTAMENTO',v:agDet.sucursal},{l:'ENCARGADO',v:agDet.encargado||'—'},{l:'ESTADO',v:agDet.estado}].map((f,i)=>(
-                  <div key={i}>
-                    <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>{f.l}</div>
-                    <div style={{fontSize:10,color:i===3?(f.v==='EN PRODUCCION'?'#00e5a0':'#f7931a'):'#e8eeff'}}>{f.v||'—'}</div>
-                  </div>
-                ))}
-              </div>
-              {agDet.correo&&(<div style={{paddingTop:8,borderTop:'1px solid rgba(124,92,252,0.15)'}}>
-                <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>CORREO</div>
-                <div style={{fontSize:10,color:'#4f8ef7'}}>{agDet.correo}</div>
-              </div>)}
-              {agDet.direccion&&(<div style={{marginTop:6}}>
-                <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:2}}>DIRECCIÓN</div>
-                <div style={{fontSize:10,color:'#7b8db0',lineHeight:1.4}}>{agDet.direccion}</div>
-              </div>)}
-            </div>
-          ) : (
-            <div style={{background:'rgba(0,229,160,0.04)',border:'1px solid rgba(0,229,160,0.15)',borderRadius:9,padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'rgba(0,229,160,0.1)',border:'1px solid rgba(0,229,160,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e5a0" strokeWidth="1.5"><path d="M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/></svg>
-              </div>
-              <div style={{fontSize:10,color:'#00e5a0',fontFamily:'monospace',fontWeight:600}}>DISPONIBLE · EN STOCK</div>
-              <div style={{fontSize:9,color:'#3d4f73',textAlign:'center'}}>Lista para asignar a una agencia o cubrir una solicitud</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* FILA INFERIOR: Historial + Acciones */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 200px',gap:16,paddingTop:14,borderTop:'1px solid #1e2d4a'}}>
-
-        {/* Historial */}
-        <div>
-          <div style={{fontSize:8,color:'#f7931a',fontFamily:'monospace',fontWeight:700,letterSpacing:1.5,marginBottom:10}}>HISTORIAL DE ACTIVIDAD</div>
-          <div style={{display:'flex',flexDirection:'column',gap:5}}>
-            {historial.map((h,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:10,background:'#141d35',border:'1px solid #1e2d4a',borderRadius:8,padding:'8px 12px'}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:h.color,flexShrink:0}}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:10,fontWeight:600,color:h.color}}>{h.ev}</div>
-                  <div style={{fontSize:9,color:'#7b8db0'}}>{h.det}</div>
-                </div>
-                <div style={{textAlign:'right',flexShrink:0}}>
-                  <div style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace'}}>{h.ts}</div>
-                  <div style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace'}}>por {h.by}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Acciones */}
-        {isAdmin && (
-          <div>
-            <div style={{fontSize:8,color:'#7b8db0',fontFamily:'monospace',fontWeight:700,letterSpacing:1.5,marginBottom:10}}>ACCIONES</div>
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
-              <button onClick={()=>onAccion('asignar',term)}
-                style={{padding:'9px 12px',borderRadius:8,background:'rgba(0,229,160,0.08)',border:'1px solid rgba(0,229,160,0.3)',color:'#00e5a0',fontSize:11,fontWeight:600,cursor:'pointer',textAlign:'left' as const}}>
-                {agDet?'Reasignar agencia':'Asignar a agencia'}
-              </button>
-              <button onClick={()=>onAccion('estado',term)}
-                style={{padding:'9px 12px',borderRadius:8,background:'rgba(247,147,26,0.08)',border:'1px solid rgba(247,147,26,0.3)',color:'#f7931a',fontSize:11,fontWeight:600,cursor:'pointer',textAlign:'left' as const}}>
-                Cambiar estado
-              </button>
-              {(term.estado as string)!=='BAJA'&&(
-                <button onClick={()=>onAccion('baja',term)}
-                  style={{padding:'9px 12px',borderRadius:8,background:'rgba(247,37,100,0.06)',border:'1px solid rgba(247,37,100,0.2)',color:'#f72564',fontSize:11,fontWeight:600,cursor:'pointer',textAlign:'left' as const}}>
-                  Dar de baja
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:9 }}>
+      <div style={{ width:14, height:1, background:color, flexShrink:0 }}/>
+      <span style={{ fontSize:8, color, fontFamily:'monospace', fontWeight:700, letterSpacing:1.8 }}>{label}</span>
     </div>
   )
 }
+
+// ── Drawer sci-fi ─────────────────────────────────────────────────────────────
+function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
+  term: any; agencias: any[]; empresas: any[]; isAdmin: boolean;
+  onAccion: (accion:'estado'|'asignar'|'baja', term:any) => void;
+  onClose: () => void;
+}) {
+  const agDet    = agencias.find(a => a.id_sub === term.id_sub)
+  const empIdx   = empresas.findIndex(e => e.nombre === term.empresa)
+  const empCol   = EMP_COLS[empIdx >= 0 ? empIdx % EMP_COLS.length : 0]
+  const estDet   = EST[term.estado as string] || { color:'#00e5a0', bg:'rgba(0,229,160,0.1)', label: term.estado }
+  const modCol   = MOD_COLOR[term.modelo] || '#4f8ef7'
+  const stColor  = estDet.color
+
+  const historial = [
+    { ev:'Estado cambiado',  det: estDet.label,                              color:'#00e5a0', ts:'Hoy 09:14',  by:'Admin'   },
+    { ev:'Agencia asignada', det: agDet ? agDet.subagencia : 'Sin agencia', color:'#4f8ef7', ts:'Hace 5d',    by:'Admin'   },
+    { ev:'Terminal creada',  det: 'Registrada en sistema',                  color:'#7c5cfc', ts:'Hace 12d',   by:'Sistema' },
+  ]
+
+  return (
+    <>
+      {/* Overlay oscuro sobre la tabla */}
+      <div onClick={onClose}
+        style={{ position:'fixed', inset:0, background:'rgba(5,8,16,0.68)', zIndex:200,
+          animation:'fadeIn .18s ease' }}/>
+
+      {/* Drawer */}
+      <div style={{
+        position:'fixed', top:0, right:0, bottom:0, width:'55%', zIndex:201,
+        clipPath:'polygon(32px 0, 100% 0, 100% 100%, 0 100%, 0 32px)',
+        display:'flex', flexDirection:'column', overflow:'hidden',
+        animation:'slideIn .22s cubic-bezier(.16,1,.3,1)',
+      }}>
+        {/* Fondo sólido */}
+        <div style={{ position:'absolute', inset:0, background:'#0d1120' }}/>
+
+        {/* Borde izquierdo + superior con color del estado */}
+        <div style={{ position:'absolute', inset:0, pointerEvents:'none',
+          borderLeft:`1px solid ${stColor}55`, borderTop:`1px solid ${stColor}55` }}/>
+
+        {/* Esquina diagonal SVG decorativa */}
+        <svg style={{ position:'absolute', top:0, left:0, width:34, height:34, zIndex:2, pointerEvents:'none' }}
+          viewBox="0 0 34 34">
+          <line x1="1" y1="33" x2="33" y2="1" stroke={stColor} strokeWidth="1" opacity="0.7"/>
+          <line x1="1" y1="26" x2="26" y2="1" stroke={stColor} strokeWidth="0.4" opacity="0.3"/>
+        </svg>
+
+        {/* Línea de neón superior */}
+        <div style={{ position:'absolute', top:0, left:32, right:0, height:1,
+          background:`linear-gradient(90deg,${stColor},${stColor}66,transparent)`, zIndex:2 }}/>
+
+        {/* Contenido */}
+        <div style={{ position:'relative', zIndex:3, display:'flex', flexDirection:'column', height:'100%' }}>
+
+          {/* ── HEADER ── */}
+          <div style={{ padding:'20px 22px 14px 46px', borderBottom:`1px solid ${stColor}18`, flexShrink:0 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+
+              <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                {/* Ícono de terminal en box cuadrado */}
+                <div style={{ width:46, height:46, border:`1px solid ${stColor}45`,
+                  background:`${stColor}0c`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stColor} strokeWidth="1.5" strokeLinecap="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <path d="M8 21h8M12 17v4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize:8, color:stColor, fontFamily:'monospace', letterSpacing:2, marginBottom:4 }}>
+                    TERMINAL ///
+                  </div>
+                  <div style={{ fontSize:19, fontWeight:900, color:'#e8eeff', fontFamily:'monospace',
+                    letterSpacing:1, lineHeight:1 }}>
+                    {term.codigo}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cerrar */}
+              <button onClick={onClose}
+                style={{ width:28, height:28, border:`1px solid ${stColor}35`,
+                  background:`${stColor}08`, display:'flex', alignItems:'center', justifyContent:'center',
+                  cursor:'pointer', color:stColor, fontSize:14, flexShrink:0 }}>
+                ✕
+              </button>
+            </div>
+
+            {/* Badges */}
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <span style={{ fontSize:8, color:stColor, background:`${stColor}14`,
+                border:`1px solid ${stColor}40`, padding:'3px 10px',
+                fontFamily:'monospace', fontWeight:700 }}>
+                ● {estDet.label}
+              </span>
+              <span style={{ fontSize:8, color:modCol, background:`${modCol}12`,
+                border:`1px solid ${modCol}35`, padding:'3px 10px',
+                fontFamily:'monospace', fontWeight:700 }}>
+                {term.modelo || '—'}
+              </span>
+              {term.empresa && (
+                <span style={{ fontSize:8, color:empCol, background:`${empCol}10`,
+                  border:`1px solid ${empCol}30`, padding:'3px 10px',
+                  fontFamily:'monospace' }}>
+                  {term.empresa}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── CUERPO scrollable ── */}
+          <div style={{ flex:1, overflowY:'auto', padding:'16px 22px', display:'flex', flexDirection:'column', gap:18 }}>
+
+            {/* DATOS */}
+            <div>
+              <SecLabel label="DATOS DE LA TERMINAL" color="#4f8ef7"/>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
+                {[
+                  { l:'MODELO',  v:term.modelo||'—',   c:modCol   },
+                  { l:'SERIE',   v:term.serie||'—',     c:'#e8eeff'},
+                  { l:'ESTADO',  v:estDet.label,        c:stColor  },
+                  { l:'EMPRESA', v:term.empresa||'—',   c:empCol   },
+                  { l:'SUCURSAL',v:term.sucursal||'—',  c:'#e8eeff'},
+                  { l:'CÓDIGO',  v:term.codigo,         c:'#00e5a0', mono:true },
+                ].map((f,i) => (
+                  <div key={i} style={{ background:'#141d35', border:'1px solid #1e2d4a', padding:'8px 11px',
+                    borderLeft:i===2?`2px solid ${stColor}`:undefined }}>
+                    <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:3 }}>{f.l}</div>
+                    <div style={{ fontSize:10, color:f.c, fontFamily:f.mono?'monospace':'system-ui',
+                      fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>
+                      {f.v}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {term.observacion && (
+                <div style={{ marginTop:6, background:'#141d35', border:'1px solid #1e2d4a', padding:'8px 11px' }}>
+                  <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>OBSERVACIÓN</div>
+                  <div style={{ fontSize:10, color:'#7b8db0', lineHeight:1.5 }}>{term.observacion}</div>
+                </div>
+              )}
+            </div>
+
+            {/* AGENCIA */}
+            <div>
+              <SecLabel label="AGENCIA ASIGNADA" color="#7c5cfc"/>
+              {agDet ? (
+                <div style={{ background:'rgba(124,92,252,0.05)', border:'1px solid rgba(124,92,252,0.2)', padding:'12px 14px' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                    {[
+                      { l:'LOCAL',      v:agDet.subagencia },
+                      { l:'DEPARTAMENTO',v:agDet.sucursal  },
+                      { l:'ENCARGADO',  v:agDet.encargado||'—' },
+                      { l:'ESTADO',     v:agDet.estado, color: agDet.estado==='EN PRODUCCION'?'#00e5a0':'#f7931a' },
+                    ].map((f,i) => (
+                      <div key={i}>
+                        <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>{f.l}</div>
+                        <div style={{ fontSize:10, color:(f as any).color||'#e8eeff' }}>{f.v||'—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {agDet.correo && (
+                    <div style={{ paddingTop:8, borderTop:'1px solid rgba(124,92,252,0.15)' }}>
+                      <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>CORREO</div>
+                      <div style={{ fontSize:10, color:'#4f8ef7' }}>{agDet.correo}</div>
+                    </div>
+                  )}
+                  {agDet.direccion && (
+                    <div style={{ marginTop:6 }}>
+                      <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>DIRECCIÓN</div>
+                      <div style={{ fontSize:10, color:'#7b8db0', lineHeight:1.4 }}>{agDet.direccion}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ background:'rgba(0,229,160,0.04)', border:'1px solid rgba(0,229,160,0.18)',
+                  padding:'16px', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+                  <div style={{ width:40, height:40, border:'1px solid rgba(0,229,160,0.3)',
+                    background:'rgba(0,229,160,0.08)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e5a0" strokeWidth="1.5">
+                      <path d="M2 7l10-5 10 5M2 7v10l10 5 10-5V7"/>
+                    </svg>
+                  </div>
+                  <div style={{ fontSize:10, color:'#00e5a0', fontFamily:'monospace', fontWeight:700 }}>DISPONIBLE · EN STOCK</div>
+                  <div style={{ fontSize:9, color:'#3d4f73', textAlign:'center' }}>Lista para asignar a una agencia</div>
+                </div>
+              )}
+            </div>
+
+            {/* HISTORIAL */}
+            <div>
+              <SecLabel label="HISTORIAL DE ACTIVIDAD" color="#f7931a"/>
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                {historial.map((h, i) => (
+                  <div key={i} style={{ background:'#141d35',
+                    borderLeft:`2px solid ${h.color}`, padding:'9px 12px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:3 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:h.color }}>{h.ev}</div>
+                      <div style={{ textAlign:'right', flexShrink:0, marginLeft:10 }}>
+                        <div style={{ fontSize:8, color:'#3d4f73', fontFamily:'monospace' }}>{h.ts}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize:9, color:'#7b8db0', marginBottom:3 }}>{h.det}</div>
+                    <div style={{ fontSize:8, color:'#4f8ef7', fontFamily:'monospace' }}>por {h.by}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── ACCIONES fijas al fondo ── */}
+          {isAdmin && (
+            <div style={{ padding:'12px 22px', borderTop:`1px solid ${stColor}18`,
+              flexShrink:0, background:'rgba(5,8,16,0.8)' }}>
+              <SecLabel label="ACCIONES" color="#7b8db0"/>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                <button onClick={() => onAccion('asignar', term)}
+                  style={{ padding:'9px', background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.3)',
+                    color:'#00e5a0', fontSize:10, fontWeight:700, cursor:'pointer' }}>
+                  {agDet ? 'Reasignar agencia' : 'Asignar agencia'}
+                </button>
+                <button onClick={() => onAccion('estado', term)}
+                  style={{ padding:'9px', background:'rgba(247,147,26,0.08)', border:'1px solid rgba(247,147,26,0.3)',
+                    color:'#f7931a', fontSize:10, fontWeight:700, cursor:'pointer' }}>
+                  Cambiar estado
+                </button>
+                {(term.estado as string) !== 'BAJA' && (
+                  <button onClick={() => onAccion('baja', term)}
+                    style={{ gridColumn:'span 2', padding:'9px', background:'rgba(247,37,100,0.06)',
+                      border:'1px solid rgba(247,37,100,0.22)', color:'#f72564',
+                      fontSize:10, fontWeight:700, cursor:'pointer' }}>
+                    Dar de baja terminal
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Keyframes */}
+      <style>{`
+        @keyframes slideIn { from { transform:translateX(100%); opacity:0 } to { transform:translateX(0); opacity:1 } }
+        @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+      `}</style>
+    </>
+  )
+}
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
@@ -541,7 +660,6 @@ export default function Terminales() {
   const handleCardEst = (key:string)=>{ setFiltEst(filtEst===key?null:key); setFiltMod(null); setPagina(1); setOpenId(null) }
   const handleCardMod = (m:string) =>{ setFiltMod(filtMod===m?null:m); setPagina(1); setOpenId(null) }
   const handleDetalle = (id:string)=>{ setOpenId(openId===id?null:id) }
-  const handleAccion  = (accion:'estado'|'asignar'|'baja', term:any)=>{ setMAcc({accion,term}) }
 
   const empColorFn = (n:string)=>{ const i=empresas.findIndex(e=>e.nombre===n); return EMP_COLS[i>=0?i%EMP_COLS.length:0] }
 
@@ -723,11 +841,7 @@ export default function Terminales() {
                     </div>
                   </div>
 
-                  {/* DETALLE EXPANDIDO INLINE */}
-                  {isOpen && (
-                    <DetalleInline term={t} agencias={agencias} empresas={empresas}
-                      isAdmin={isAdmin} onAccion={handleAccion}/>
-                  )}
+
                 </div>
               )
             })
@@ -756,6 +870,17 @@ export default function Terminales() {
             <button onClick={()=>setPagina(pagTotal)} disabled={pagina===pagTotal} style={{...S.chip(false),padding:'3px 8px',opacity:pagina===pagTotal?.4:1}}>»</button>
           </div>
         </div>
+      )}
+
+      {/* DRAWER SCI-FI */}
+      {openId && terminales.find(t=>t._id===openId) && (
+        <DrawerSciFi
+          term={terminales.find(t=>t._id===openId)!}
+          agencias={agencias} empresas={empresas}
+          isAdmin={isAdmin}
+          onAccion={(accion,term)=>{ setMAcc({accion,term}) }}
+          onClose={()=>setOpenId(null)}
+        />
       )}
 
       {/* MODALES */}

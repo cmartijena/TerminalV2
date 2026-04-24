@@ -325,6 +325,90 @@ function ModalNueva({ agencias, onClose, onDone }: { agencias:any[]; onClose:()=
 }
 
 // ── Detalle inline expandido ──────────────────────────────────────────────────
+// ── Modal Editar Terminal ────────────────────────────────────────────────────
+function ModalEditar({ term, onClose, onDone }: { term:any; onClose:()=>void; onDone:()=>void }) {
+  const { actualizar } = useTerminalOps()
+  const [codigo,  setCod]  = useState(term.codigo||'')
+  const [serie,   setSer]  = useState(term.serie||'')
+  const [obs,     setObs]  = useState(term.observacion||'')
+  const [modelo,  setMod]  = useState(term.modelo||'BOXDUAL')
+  const [saving,  setSav]  = useState(false)
+  const [ok,      setOk]   = useState(false)
+  const [err,     setErr]  = useState('')
+
+  const handle = async () => {
+    if (!codigo.trim()) { setErr('El código es obligatorio'); return }
+    setSav(true); setErr('')
+    const res = await actualizar(term._id||term.id, {
+      codigo:      codigo.trim().toUpperCase(),
+      serie:       serie.trim()||undefined,
+      observacion: obs.trim()||undefined,
+      modelo:      modelo as any,
+    })
+    setSav(false)
+    if (res.ok) { setOk(true); setTimeout(onDone, 1200) } else setErr(res.error||'Error al guardar')
+  }
+
+  return (
+    <div style={S.modal} onClick={onClose}>
+      <div style={S.mbox(460)} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div>
+            <h3 style={{margin:0,fontSize:14,fontWeight:700,color:'#e8eeff'}}>Editar terminal</h3>
+            <p style={{margin:'3px 0 0',fontSize:10,color:'#7b8db0',fontFamily:'monospace'}}>{term.codigo}</p>
+          </div>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:'#3d4f73',cursor:'pointer',fontSize:18}}>✕</button>
+        </div>
+
+        {/* Modelo */}
+        <div style={{fontSize:8,color:'#7b8db0',fontFamily:'monospace',marginBottom:6}}>MODELO</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:5,marginBottom:14}}>
+          {MODELOS_DB.map(m=>(
+            <div key={m} onClick={()=>setMod(m)} style={{padding:'7px 6px',borderRadius:8,cursor:'pointer',textAlign:'center',
+              background:modelo===m?'rgba(247,147,26,0.12)':'#141d35',
+              border:`1px solid ${modelo===m?'rgba(247,147,26,0.45)':'#1e2d4a'}`}}>
+              <div style={{fontSize:9,fontWeight:700,color:modelo===m?'#f7931a':'#7b8db0'}}>{m}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Código */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:8,color:'#7b8db0',fontFamily:'monospace',marginBottom:5}}>CÓDIGO *</div>
+          <input value={codigo} onChange={e=>setCod(e.target.value.toUpperCase())}
+            placeholder="WLLELG-E0001" style={{...S.inp,width:'100%'}}/>
+        </div>
+
+        {/* Serie */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:8,color:'#7b8db0',fontFamily:'monospace',marginBottom:5}}>NÚMERO DE SERIE</div>
+          <input value={serie} onChange={e=>setSer(e.target.value)}
+            placeholder="Número de serie del equipo..." style={{...S.inp,width:'100%'}}/>
+        </div>
+
+        {/* Observaciones */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:8,color:'#7b8db0',fontFamily:'monospace',marginBottom:5}}>OBSERVACIONES</div>
+          <textarea value={obs} onChange={e=>setObs(e.target.value)} rows={3}
+            placeholder="Notas adicionales sobre la terminal..."
+            style={{...S.inp,width:'100%',resize:'none' as any}}/>
+        </div>
+
+        {err && <div style={{padding:'8px 12px',background:'rgba(247,37,100,0.08)',border:'1px solid rgba(247,37,100,0.2)',borderRadius:8,fontSize:11,color:'#f72564',marginBottom:12}}>{err}</div>}
+
+        {ok
+          ? <div style={{padding:'10px',background:'rgba(0,229,160,0.08)',border:'1px solid rgba(0,229,160,0.25)',borderRadius:9,textAlign:'center',fontSize:12,color:'#00e5a0'}}>✓ Terminal actualizada correctamente</div>
+          : <button onClick={handle} disabled={saving}
+              style={{width:'100%',padding:'11px',borderRadius:9,fontSize:13,fontWeight:700,cursor:saving?'not-allowed':'pointer',
+                background:saving?'#1e2d4a':'rgba(247,147,26,0.12)',border:`1px solid ${saving?'#1e2d4a':'rgba(247,147,26,0.4)'}`,
+                color:saving?'#3d4f73':'#f7931a'}}>
+              {saving?'Guardando...':'Guardar cambios'}
+            </button>}
+      </div>
+    </div>
+  )
+}
+
 // ── Sección label con línea decorativa ───────────────────────────────────────
 function SecLabel({ label, color }: { label: string; color: string }) {
   return (
@@ -338,7 +422,7 @@ function SecLabel({ label, color }: { label: string; color: string }) {
 // ── Drawer sci-fi ─────────────────────────────────────────────────────────────
 function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
   term: any; agencias: any[]; empresas: any[]; isAdmin: boolean;
-  onAccion: (accion:'estado'|'asignar'|'baja', term:any) => void;
+  onAccion: (accion:'estado'|'asignar'|'baja'|'editar', term:any) => void;
   onClose: () => void;
 }) {
   const agDet    = agencias.find(a => a.id_sub === term.id_sub)
@@ -390,12 +474,12 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
         <div style={{ position:'relative', zIndex:3, display:'flex', flexDirection:'column', height:'100%' }}>
 
           {/* ── HEADER ── */}
-          <div style={{ padding:'20px 22px 14px 46px', borderBottom:`1px solid ${stColor}18`, flexShrink:0 }}>
+          <div style={{ padding:'12px 18px 10px 40px', borderBottom:`1px solid ${stColor}18`, flexShrink:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
 
               <div style={{ display:'flex', alignItems:'center', gap:14 }}>
                 {/* Ícono de terminal en box cuadrado */}
-                <div style={{ width:46, height:46, border:`1px solid ${stColor}45`,
+                <div style={{ width:38, height:38, border:`1px solid ${stColor}45`,
                   background:`${stColor}0c`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={stColor} strokeWidth="1.5" strokeLinecap="round">
                     <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -406,7 +490,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
                   <div style={{ fontSize:8, color:stColor, fontFamily:'monospace', letterSpacing:2, marginBottom:4 }}>
                     TERMINAL ///
                   </div>
-                  <div style={{ fontSize:19, fontWeight:900, color:'#e8eeff', fontFamily:'monospace',
+                  <div style={{ fontSize:15, fontWeight:900, color:'#e8eeff', fontFamily:'monospace',
                     letterSpacing:1, lineHeight:1 }}>
                     {term.codigo}
                   </div>
@@ -445,7 +529,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
           </div>
 
           {/* ── CUERPO scrollable ── */}
-          <div style={{ flex:1, overflowY:'auto', padding:'16px 22px', display:'flex', flexDirection:'column', gap:18 }}>
+          <div style={{ flex:1, overflowY:'auto', padding:'10px 18px', display:'flex', flexDirection:'column', gap:12 }}>
 
             {/* DATOS */}
             <div>
@@ -546,10 +630,17 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
 
           {/* ── ACCIONES fijas al fondo ── */}
           {isAdmin && (
-            <div style={{ padding:'12px 22px', borderTop:`1px solid ${stColor}18`,
+            <div style={{ padding:'9px 18px', borderTop:`1px solid ${stColor}18`,
               flexShrink:0, background:'rgba(5,8,16,0.8)' }}>
               <SecLabel label="ACCIONES" color="#7b8db0"/>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                <button onClick={() => onAccion('editar', term)}
+                  style={{ padding:'9px', background:'rgba(124,92,252,0.08)', border:'1px solid rgba(124,92,252,0.3)',
+                    color:'#7c5cfc', fontSize:10, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                  Editar terminal
+                </button>
                 <button onClick={() => onAccion('asignar', term)}
                   style={{ padding:'9px', background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.3)',
                     color:'#00e5a0', fontSize:10, fontWeight:700, cursor:'pointer' }}>
@@ -560,9 +651,10 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
                     color:'#f7931a', fontSize:10, fontWeight:700, cursor:'pointer' }}>
                   Cambiar estado
                 </button>
+              </div>
                 {(term.estado as string) !== 'BAJA' && (
                   <button onClick={() => onAccion('baja', term)}
-                    style={{ gridColumn:'span 2', padding:'9px', background:'rgba(247,37,100,0.06)',
+                    style={{ width:'100%', padding:'9px', background:'rgba(247,37,100,0.06)',
                       border:'1px solid rgba(247,37,100,0.22)', color:'#f72564',
                       fontSize:10, fontWeight:700, cursor:'pointer' }}>
                     Dar de baja terminal
@@ -612,10 +704,11 @@ export default function Terminales() {
   const [mNueva,   setMNueva]  = useState(false)
   const [mExport,  setMExport] = useState(false)
   const [mAccion,  setMAcc]    = useState<{accion:'estado'|'asignar'|'baja';term:any}|null>(null)
+  const [mEditar,  setMEdit]   = useState<any|null>(null)
   const rowRefs = useRef<Record<string,HTMLDivElement|null>>({})
   const POR_PAG = 50
 
-  const reload = useCallback(async()=>{ await loadAll(); setMAcc(null); setMNueva(false) },[loadAll])
+  const reload = useCallback(async()=>{ await loadAll(); setMAcc(null); setMNueva(false); setMEdit(null) },[loadAll])
 
   // Auto-scroll al expandir
   useEffect(()=>{
@@ -759,8 +852,8 @@ export default function Terminales() {
       {/* ══ TABLA FULL WIDTH ═════════════════════════════════════════════ */}
       <div style={{overflowX:'auto'}}>
         {/* Header */}
-        <div style={{display:'grid',gridTemplateColumns:'160px 100px 155px 155px 110px 1fr 130px',
-          background:'#050810',padding:'7px 20px',borderBottom:'1px solid #1e2d4a',minWidth:900,position:'sticky',top:0,zIndex:10}}>
+        <div style={{display:'grid',gridTemplateColumns:'145px 90px 145px 130px 95px 1fr 100px',
+          background:'#050810',padding:'6px 14px',borderBottom:'1px solid #1e2d4a',minWidth:700,position:'sticky',top:0,zIndex:10}}>
           {[{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},
             {l:'EMPRESA',c:'empresa'},{l:'SUCURSAL',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'ACCIONES',c:''}
           ].map((h,i)=>(
@@ -774,7 +867,7 @@ export default function Terminales() {
         </div>
 
         {/* Body */}
-        <div style={{minWidth:900}}>
+        <div style={{minWidth:700}}>
           {!loaded ? (
             <div style={{padding:'50px',textAlign:'center',fontSize:11,color:'#3d4f73',fontFamily:'monospace'}}>Cargando terminales...</div>
           ) : filtradas.length===0 ? (
@@ -792,8 +885,8 @@ export default function Terminales() {
               return (
                 <div key={t._id} ref={el=>{ rowRefs.current[t._id||''] = el }}>
                   {/* Fila principal */}
-                  <div style={{display:'grid',gridTemplateColumns:'160px 100px 155px 155px 110px 1fr 130px',
-                    padding:'9px 20px',borderBottom:`1px solid ${isOpen?'rgba(79,142,247,0.2)':'#141d35'}`,
+                  <div style={{display:'grid',gridTemplateColumns:'145px 90px 145px 130px 95px 1fr 100px',
+                    padding:'7px 14px',borderBottom:`1px solid ${isOpen?'rgba(79,142,247,0.2)':'#141d35'}`,
                     borderLeft:isOpen?`3px solid #4f8ef7`:'3px solid transparent',
                     background:isOpen?'rgba(79,142,247,0.05)':'transparent',
                     transition:'all .1s',cursor:'pointer'}}
@@ -823,6 +916,10 @@ export default function Terminales() {
                     <div style={{display:'flex',gap:4,alignSelf:'center'}}>
 
                       {isAdmin&&(<>
+                        <button title="Editar terminal" onClick={e=>{e.stopPropagation();setMEdit(t)}}
+                          style={{width:26,height:26,borderRadius:5,background:'rgba(124,92,252,0.1)',border:'1px solid rgba(124,92,252,0.3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#7c5cfc'}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                        </button>
                         <button title="Asignar" onClick={e=>{e.stopPropagation();setMAcc({accion:'asignar',term:t})}}
                           style={{width:26,height:26,borderRadius:5,background:'rgba(0,229,160,0.1)',border:'1px solid rgba(0,229,160,0.3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#00e5a0'}}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -878,7 +975,7 @@ export default function Terminales() {
           term={terminales.find(t=>t._id===openId)!}
           agencias={agencias} empresas={empresas}
           isAdmin={isAdmin}
-          onAccion={(accion,term)=>{ setMAcc({accion,term}) }}
+          onAccion={(accion,term)=>{ accion==='editar'?setMEdit(term):setMAcc({accion:accion as any,term}) }}
           onClose={()=>setOpenId(null)}
         />
       )}
@@ -886,6 +983,7 @@ export default function Terminales() {
       {/* MODALES */}
       {mNueva  && <ModalNueva  agencias={agencias} onClose={()=>setMNueva(false)} onDone={reload}/>}
       {mExport && <ModalExport todos={filtradas}   onClose={()=>setMExport(false)}/>}
+      {mEditar && <ModalEditar term={mEditar} onClose={()=>setMEdit(null)} onDone={reload}/> }
       {mAccion && <ModalAccion term={mAccion.term} accion={mAccion.accion} agencias={agencias} onClose={()=>setMAcc(null)} onDone={reload}/>}
     </div>
   )

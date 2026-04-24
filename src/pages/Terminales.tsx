@@ -363,7 +363,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
 
       {/* Drawer */}
       <div style={{
-        position:'fixed', top:0, right:0, bottom:0, width:'55%', zIndex:201,
+        position:'fixed', top:0, right:0, bottom:0, width:'30%', zIndex:201,
         clipPath:'polygon(32px 0, 100% 0, 100% 100%, 0 100%, 0 32px)',
         display:'flex', flexDirection:'column', overflow:'hidden',
         animation:'slideIn .22s cubic-bezier(.16,1,.3,1)',
@@ -802,8 +802,11 @@ export default function Terminales() {
 
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <div style={{width:6,height:6,borderRadius:'50%',background:em.color,flexShrink:0}}/>
-                      <span style={{fontSize:10,fontWeight:700,color:isOpen?'#4f8ef7':'#00e5a0',fontFamily:'monospace',
-                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{t.codigo}</span>
+                      <span onClick={e=>{e.stopPropagation();handleDetalle(t._id||'')}}
+                        style={{fontSize:10,fontWeight:700,color:isOpen?'#4f8ef7':'#00e5a0',fontFamily:'monospace',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,
+                        cursor:'pointer',textDecoration:isOpen?'underline':'none',
+                        textDecorationColor:'#4f8ef750'}}>{t.codigo}</span>
                     </div>
                     <span style={{fontSize:10,fontWeight:700,color:mc,fontFamily:'monospace',alignSelf:'center'}}>{t.modelo||'—'}</span>
                     <div style={{alignSelf:'center'}}>
@@ -818,10 +821,7 @@ export default function Terminales() {
 
                     {/* Acciones */}
                     <div style={{display:'flex',gap:4,alignSelf:'center'}}>
-                      <button title="Datos / Historial" onClick={e=>{e.stopPropagation();handleDetalle(t._id||'')}}
-                        style={{width:26,height:26,borderRadius:5,background:isOpen?'#4f8ef7':'rgba(79,142,247,0.15)',border:`1px solid ${isOpen?'#4f8ef7':'rgba(79,142,247,0.3)'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:isOpen?'#0a0e1a':'#4f8ef7'}}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
-                      </button>
+
                       {isAdmin&&(<>
                         <button title="Asignar" onClick={e=>{e.stopPropagation();setMAcc({accion:'asignar',term:t})}}
                           style={{width:26,height:26,borderRadius:5,background:'rgba(0,229,160,0.1)',border:'1px solid rgba(0,229,160,0.3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#00e5a0'}}>

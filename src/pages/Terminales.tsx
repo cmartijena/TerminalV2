@@ -447,7 +447,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
 
       {/* Drawer */}
       <div style={{
-        position:'fixed', top:0, right:0, bottom:0, width:'30%', zIndex:201,
+        position:'fixed', top:'48px', right:0, bottom:0, width:'30%', zIndex:201,
         clipPath:'polygon(32px 0, 100% 0, 100% 100%, 0 100%, 0 32px)',
         display:'flex', flexDirection:'column', overflow:'hidden',
         animation:'slideIn .22s cubic-bezier(.16,1,.3,1)',
@@ -525,6 +525,19 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
                   {term.empresa}
                 </span>
               )}
+              {(() => {
+                const on = (term.estado as string)==='ACTIVO' && !!term.agencia_id
+                return (
+                  <span style={{ fontSize:8, color:on?'#00e5a0':'#3d4f73',
+                    background:on?'rgba(0,229,160,0.08)':'rgba(61,79,115,0.15)',
+                    border:`1px solid ${on?'rgba(0,229,160,0.25)':'#1e2d4a'}`,
+                    padding:'3px 10px', fontFamily:'monospace', display:'flex', alignItems:'center', gap:4 }}>
+                    <div style={{ width:5, height:5, borderRadius:'50%', background:on?'#00e5a0':'#3d4f73',
+                      boxShadow:on?'0 0 5px #00e5a060':undefined }}/>
+                    {on ? 'Encendida' : 'Desconectada'}
+                  </span>
+                )
+              })()}
             </div>
           </div>
 
@@ -696,6 +709,7 @@ export default function Terminales() {
   const [filtMod,  setFiltMod] = useState<string|null>(null)   // null = todos
   const [filtEmp,  setFiltEmp] = useState('todas')
   const [filtDept, setFiltDept]= useState('todos')
+  const [filtWAM,  setFiltWAM]  = useState<'todos'|'on'|'off'>('todos')
   const [pagina,   setPagina]  = useState(1)
   const [sort,     setSort]    = useState<{col:string;asc:boolean}>({col:'codigo',asc:true})
 
@@ -709,6 +723,9 @@ export default function Terminales() {
   const POR_PAG = 50
 
   const reload = useCallback(async()=>{ await loadAll(); setMAcc(null); setMNueva(false); setMEdit(null) },[loadAll])
+
+  // Estado WAM simulado (basado en agencia_id y estado ACTIVO)
+  const isOnline = (t:any) => (t.estado as string)==='ACTIVO' && !!t.agencia_id
 
   // Auto-scroll al expandir
   useEffect(()=>{
@@ -738,6 +755,8 @@ export default function Terminales() {
       if(filtMod && t.modelo!==filtMod) return false
       if(filtEmp!=='todas' && t.empresa!==filtEmp) return false
       if(filtDept!=='todos' && t.sucursal!==filtDept) return false
+      if(filtWAM==='on' && !isOnline(t)) return false
+      if(filtWAM==='off' && isOnline(t)) return false
       return true
     })
     return [...rows].sort((a,b)=>{
@@ -804,59 +823,106 @@ export default function Terminales() {
       </div>
 
       {/* ══ TOOLBAR ══════════════════════════════════════════════════════ */}
-      <div style={{display:'flex',gap:8,padding:'10px 16px',background:'#0f1629',borderBottom:'1px solid #1e2d4a',alignItems:'center',flexWrap:'wrap'}}>
-        <div style={{flex:1,minWidth:180,position:'relative'}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3d4f73" strokeWidth="2"
-            style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input value={buscar} onChange={e=>{setBuscar(e.target.value);setPagina(1);setOpenId(null)}}
-            placeholder="Código, modelo, empresa, agencia..." style={{...S.inp,width:'100%',paddingLeft:30}}/>
-        </div>
-        {!isFranq&&(
-          <select value={filtEmp} onChange={e=>{setFiltEmp(e.target.value);setPagina(1);setOpenId(null)}}
-            style={{...S.inp,width:'auto',appearance:'none' as any}}>
-            <option value="todas">Todas las empresas</option>
-            {emps.map(e=><option key={e} value={e}>{e}</option>)}
-          </select>
-        )}
-        <select value={filtDept} onChange={e=>{setFiltDept(e.target.value);setPagina(1);setOpenId(null)}}
-          style={{...S.inp,width:'auto',appearance:'none' as any}}>
-          <option value="todos">Todos los dptos.</option>
-          {depts.map(d=><option key={d} value={d}>{d}</option>)}
-        </select>
-        {(filtEst||filtMod||filtEmp!=='todas'||filtDept!=='todos'||buscar)&&(
-          <button onClick={()=>{setBuscar('');setFiltEst(null);setFiltMod(null);setFiltEmp('todas');setFiltDept('todos');setPagina(1);setOpenId(null)}}
-            style={{...S.chip(false,'#f72564'),padding:'7px 12px'}}>✕ Limpiar</button>
-        )}
-        <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+      <div style={{background:'#0f1629',borderBottom:'1px solid #1e2d4a',padding:'8px 14px',display:'flex',flexDirection:'column',gap:7}}>
+        {/* Fila 1: búsqueda + acciones */}
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <div style={{flex:1,position:'relative'}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3d4f73" strokeWidth="2"
+              style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input value={buscar} onChange={e=>{setBuscar(e.target.value);setPagina(1);setOpenId(null)}}
+              placeholder="Buscar por código, agencia, empresa, modelo..." style={{...S.inp,width:'100%',paddingLeft:30,fontSize:11}}/>
+          </div>
+          {(filtEst||filtMod||filtEmp!=='todas'||filtDept!=='todos'||filtWAM!=='todos'||buscar)&&(
+            <button onClick={()=>{setBuscar('');setFiltEst(null);setFiltMod(null);setFiltEmp('todas');setFiltDept('todos');setFiltWAM('todos');setPagina(1);setOpenId(null)}}
+              style={{...S.chip(false,'#f72564'),padding:'7px 12px',whiteSpace:'nowrap' as const}}>✕ Limpiar</button>
+          )}
           <button onClick={()=>setMExport(true)}
-            style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,
+            style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:7,
               background:'rgba(79,142,247,0.1)',border:'1px solid rgba(79,142,247,0.3)',
-              color:'#4f8ef7',fontSize:11,fontWeight:600,cursor:'pointer'}}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar CSV
+              color:'#4f8ef7',fontSize:10,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap' as const}}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
+            CSV
           </button>
           {isAdmin&&(
             <button onClick={()=>setMNueva(true)}
-              style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,
+              style={{display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:7,
                 background:'rgba(0,229,160,0.1)',border:'1px solid rgba(0,229,160,0.35)',
-                color:'#00e5a0',fontSize:11,fontWeight:600,cursor:'pointer'}}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Nueva terminal
+                color:'#00e5a0',fontSize:10,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap' as const}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nueva
             </button>
           )}
+        </div>
+        {/* Fila 2: 4 filtros tipo casilla */}
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          {/* Filtro EMPRESA */}
+          {!isFranq&&(
+            <div style={{display:'flex',alignItems:'center',gap:5}}>
+              <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1}}>EMPRESA</span>
+              <select value={filtEmp} onChange={e=>{setFiltEmp(e.target.value);setPagina(1);setOpenId(null)}}
+                style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:6,padding:'4px 8px',fontSize:10,color:'#e8eeff',outline:'none',appearance:'none' as any,cursor:'pointer',maxWidth:130}}>
+                <option value="todas">Todas</option>
+                {emps.map(e=><option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+          )}
+          {/* Filtro DEPARTAMENTO */}
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1}}>DPTO.</span>
+            <select value={filtDept} onChange={e=>{setFiltDept(e.target.value);setPagina(1);setOpenId(null)}}
+              style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:6,padding:'4px 8px',fontSize:10,color:'#e8eeff',outline:'none',appearance:'none' as any,cursor:'pointer',maxWidth:120}}>
+              <option value="todos">Todos</option>
+              {depts.map(d=><option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          {/* Filtro ESTADO */}
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1}}>ESTADO</span>
+            <select value={filtEst||'todos'} onChange={e=>{setFiltEst(e.target.value==='todos'?null:e.target.value);setPagina(1);setOpenId(null)}}
+              style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:6,padding:'4px 8px',fontSize:10,color:'#e8eeff',outline:'none',appearance:'none' as any,cursor:'pointer',maxWidth:140}}>
+              <option value="todos">Todos los estados</option>
+              {TODOS_EST.map(e=><option key={e} value={e}>{EST[e]?.label||e}</option>)}
+            </select>
+          </div>
+          {/* Filtro MODELO */}
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1}}>MODELO</span>
+            <select value={filtMod||'todos'} onChange={e=>{setFiltMod(e.target.value==='todos'?null:e.target.value);setPagina(1);setOpenId(null)}}
+              style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:6,padding:'4px 8px',fontSize:10,color:'#e8eeff',outline:'none',appearance:'none' as any,cursor:'pointer',maxWidth:120}}>
+              <option value="todos">Todos</option>
+              {MODELOS_DB.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          {/* Filtro WAM / Conexión */}
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1}}>CONEXIÓN</span>
+            <select value={filtWAM} onChange={e=>{setFiltWAM(e.target.value as any);setPagina(1);setOpenId(null)}}
+              style={{background:'#141d35',border:'1px solid #1e2d4a',borderRadius:6,padding:'4px 8px',fontSize:10,color:'#e8eeff',outline:'none',appearance:'none' as any,cursor:'pointer',maxWidth:130}}>
+              <option value="todos">Todas</option>
+              <option value="on">⚡ Encendida</option>
+              <option value="off">○ Desconectada</option>
+            </select>
+          </div>
+          <span style={{marginLeft:'auto',fontSize:8,color:'#3d4f73',fontFamily:'monospace'}}>{filtradas.length} / {visibles.length} terminales</span>
         </div>
       </div>
 
       {/* ══ TABLA FULL WIDTH ═════════════════════════════════════════════ */}
-      <div style={{overflowX:'auto'}}>
+      {(() => {
+        const COLS = openId
+          ? '120px 75px 115px 105px 60px 1fr 75px 80px'
+          : '150px 85px 148px 130px 82px 1fr 95px 100px'
+        const HDRS = openId
+          ? [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCU.',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'CONEX.',c:''},{l:'ACC.',c:''}]
+          : [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCURSAL',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'CONEXIÓN',c:''},{l:'ACCIONES',c:''}]
+        return (
+      <div>
         {/* Header */}
-        <div style={{display:'grid',gridTemplateColumns:'145px 90px 145px 130px 95px 1fr 100px',
-          background:'#050810',padding:'6px 14px',borderBottom:'1px solid #1e2d4a',minWidth:700,position:'sticky',top:0,zIndex:10}}>
-          {[{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},
-            {l:'EMPRESA',c:'empresa'},{l:'SUCURSAL',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'ACCIONES',c:''}
-          ].map((h,i)=>(
+        <div style={{display:'grid',gridTemplateColumns:COLS,
+          background:'#050810',padding:'6px 14px',borderBottom:'1px solid #1e2d4a',position:'sticky',top:0,zIndex:10}}>
+          {HDRS.map((h,i)=>(
             <div key={i} onClick={()=>h.c&&handleSort(h.c)}
               style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1.2,
                 cursor:h.c?'pointer':'default',userSelect:'none' as const,display:'flex',alignItems:'center',gap:3}}>
@@ -867,7 +933,7 @@ export default function Terminales() {
         </div>
 
         {/* Body */}
-        <div style={{minWidth:700}}>
+        <div>
           {!loaded ? (
             <div style={{padding:'50px',textAlign:'center',fontSize:11,color:'#3d4f73',fontFamily:'monospace'}}>Cargando terminales...</div>
           ) : filtradas.length===0 ? (
@@ -885,8 +951,8 @@ export default function Terminales() {
               return (
                 <div key={t._id} ref={el=>{ rowRefs.current[t._id||''] = el }}>
                   {/* Fila principal */}
-                  <div style={{display:'grid',gridTemplateColumns:'145px 90px 145px 130px 95px 1fr 100px',
-                    padding:'7px 14px',borderBottom:`1px solid ${isOpen?'rgba(79,142,247,0.2)':'#141d35'}`,
+                  <div style={{display:'grid',gridTemplateColumns:COLS,
+                    padding:'6px 14px',borderBottom:`1px solid ${isOpen?'rgba(79,142,247,0.2)':'#141d35'}`,
                     borderLeft:isOpen?`3px solid #4f8ef7`:'3px solid transparent',
                     background:isOpen?'rgba(79,142,247,0.05)':'transparent',
                     transition:'all .1s',cursor:'pointer'}}
@@ -911,6 +977,20 @@ export default function Terminales() {
                     </div>
                     <span style={{fontSize:10,color:'#7b8db0',fontFamily:'monospace',alignSelf:'center'}}>{t.sucursal||'—'}</span>
                     <span style={{fontSize:10,color:t.agencia?'#7b8db0':'#3d4f73',fontStyle:t.agencia?'normal':'italic',alignSelf:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,display:'block'}}>{t.agencia||'Sin agencia'}</span>
+
+                    {/* Conexión WAM */}
+                    {(() => {
+                      const on = isOnline(t)
+                      return (
+                        <div style={{alignSelf:'center',display:'flex',alignItems:'center',gap:4}}>
+                          <div style={{width:6,height:6,borderRadius:'50%',background:on?'#00e5a0':'#3d4f73',
+                            boxShadow:on?'0 0 6px #00e5a060':undefined,flexShrink:0}}/>
+                          <span style={{fontSize:8,color:on?'#00e5a0':'#3d4f73',fontFamily:'monospace',fontWeight:600}}>
+                            {on?'Encendida':'Desconect.'}
+                          </span>
+                        </div>
+                      )
+                    })()}
 
                     {/* Acciones */}
                     <div style={{display:'flex',gap:4,alignSelf:'center'}}>
@@ -945,6 +1025,8 @@ export default function Terminales() {
           )}
         </div>
       </div>
+
+      )})()}
 
       {/* Paginación */}
       {filtradas.length>0&&(

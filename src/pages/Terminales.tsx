@@ -566,6 +566,23 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
                   </div>
                 ))}
               </div>
+              {(() => {
+                const ag = agencias.find((a:any)=>a._id===term.agencia_id||a.id_sub===term.id_sub)
+                return ag?.direccion ? (
+                  <div style={{ marginTop:6, background:'#141d35', border:'1px solid #1e2d4a', padding:'8px 11px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>DIRECCIÓN</div>
+                      <div style={{ fontSize:10, color:'#7b8db0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' as const }}>{ag.direccion}</div>
+                    </div>
+                    {ag.lat&&ag.lng&&(
+                      <a href={`https://maps.google.com/?q=${ag.lat},${ag.lng}`} target="_blank" rel="noreferrer"
+                        style={{ fontSize:8, color:'#4f8ef7', fontFamily:'monospace', textDecoration:'none', flexShrink:0, display:'flex', alignItems:'center', gap:3 }}>
+                        📍{Number(ag.lat).toFixed(4)},{Number(ag.lng).toFixed(4)}
+                      </a>
+                    )}
+                  </div>
+                ) : null
+              })()}
               {term.observacion && (
                 <div style={{ marginTop:6, background:'#141d35', border:'1px solid #1e2d4a', padding:'8px 11px' }}>
                   <div style={{ fontSize:7, color:'#3d4f73', fontFamily:'monospace', marginBottom:2 }}>OBSERVACIÓN</div>
@@ -740,10 +757,15 @@ export default function Terminales() {
   const stats = useMemo(()=>{
     const r: Record<string,number> = {}
     ESTADO_ROWS.forEach(e=>{ r[e.key]=visibles.filter(t=>(t.estado as string)===e.key).length })
+    // modCount cambia según filtEst activo
+    const base = filtEst ? visibles.filter(t=>(t.estado as string)===filtEst) : visibles
     const modCount: Record<string,number> = {}
-    visibles.forEach(t=>{ if(t.modelo) modCount[t.modelo]=(modCount[t.modelo]||0)+1 })
-    return { est:r, modCount, total:visibles.length }
-  },[visibles])
+    base.forEach(t=>{ if(t.modelo) modCount[t.modelo]=(modCount[t.modelo]||0)+1 })
+    // WAM stats — conectadas = ACTIVO con agencia
+    const conectadas = visibles.filter(t=>(t.estado as string)==='ACTIVO' && !!t.agencia_id).length
+    const desconect  = visibles.filter(t=>(t.estado as string)==='ACTIVO' && !t.agencia_id).length
+    return { est:r, modCount, total:visibles.length, conectadas, desconect }
+  },[visibles, filtEst])
 
   const filtradas = useMemo(()=>{
     const q = buscar.toLowerCase()
@@ -793,17 +815,33 @@ export default function Terminales() {
           </div>
         ))}
       </div>
-      {/* Estados secundarios */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:1}}>
+      {/* Estados secundarios + WAM */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:1}}>
         {ESTADO_ROWS.slice(4).map(e=>(
           <div key={e.key} onClick={()=>handleCardEst(e.key)}
             style={{background:filtEst===e.key?`${e.color}10`:'#0a0e1a',borderBottom:`2px solid ${e.color}`,
-              padding:'8px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'background .15s',userSelect:'none' as const}}>
-            <span style={{fontSize:14,color:e.color}}>{e.ico}</span>
-            <div style={{fontSize:18,fontWeight:900,color:e.color,fontFamily:'monospace',lineHeight:1}}>{loaded?stats.est[e.key]||0:'—'}</div>
-            <div style={{fontSize:7,color:filtEst===e.key?e.color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5}}>{e.label}</div>
+              padding:'7px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,transition:'background .15s',userSelect:'none' as const}}>
+            <span style={{fontSize:13,color:e.color}}>{e.ico}</span>
+            <div style={{fontSize:16,fontWeight:900,color:e.color,fontFamily:'monospace',lineHeight:1}}>{loaded?stats.est[e.key]||0:'—'}</div>
+            <div style={{fontSize:7,color:filtEst===e.key?e.color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.2}}>{e.label}</div>
           </div>
         ))}
+        {/* Conectadas WAM */}
+        <div onClick={()=>{ setFiltEst('ACTIVO'); setFiltWAM(filtWAM==='on'?'todos':'on'); setPagina(1); setOpenId(null) }}
+          style={{background:filtWAM==='on'?'rgba(0,229,160,0.08)':'#0a0e1a',borderBottom:'2px solid #00e5a0',
+            padding:'7px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,transition:'background .15s',userSelect:'none' as const}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#00e5a0',boxShadow:'0 0 6px #00e5a080',flexShrink:0}}/>
+          <div style={{fontSize:16,fontWeight:900,color:'#00e5a0',fontFamily:'monospace',lineHeight:1}}>{loaded?stats.conectadas:'—'}</div>
+          <div style={{fontSize:7,color:filtWAM==='on'?'#00e5a0':'#7b8db0',fontFamily:'monospace',letterSpacing:1.2}}>CONECTADAS</div>
+        </div>
+        {/* Desconectadas WAM */}
+        <div onClick={()=>{ setFiltEst('ACTIVO'); setFiltWAM(filtWAM==='off'?'todos':'off'); setPagina(1); setOpenId(null) }}
+          style={{background:filtWAM==='off'?'rgba(247,37,100,0.06)':'#0a0e1a',borderBottom:'2px solid #3d4f73',
+            padding:'7px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,transition:'background .15s',userSelect:'none' as const}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#3d4f73',flexShrink:0}}/>
+          <div style={{fontSize:16,fontWeight:900,color:'#3d4f73',fontFamily:'monospace',lineHeight:1}}>{loaded?stats.desconect:'—'}</div>
+          <div style={{fontSize:7,color:filtWAM==='off'?'#e8eeff':'#7b8db0',fontFamily:'monospace',letterSpacing:1.2}}>DESCONECT.</div>
+        </div>
       </div>
 
       {/* ══ FILA 2: MODELOS ═════════════════════════════════════════════ */}
@@ -912,11 +950,11 @@ export default function Terminales() {
       {/* ══ TABLA FULL WIDTH ═════════════════════════════════════════════ */}
       {(() => {
         const COLS = openId
-          ? '120px 75px 115px 105px 60px 1fr 75px 80px'
-          : '150px 85px 148px 130px 82px 1fr 95px 100px'
+          ? '108px 68px 105px 95px 55px minmax(80px,1fr) minmax(80px,1fr) minmax(60px,1fr) 60px 72px'
+          : '130px 80px 128px 118px 68px minmax(90px,1fr) minmax(90px,1fr) minmax(70px,1fr) 75px 90px'
         const HDRS = openId
-          ? [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCU.',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'CONEX.',c:''},{l:'ACC.',c:''}]
-          : [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCURSAL',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'CONEXIÓN',c:''},{l:'ACCIONES',c:''}]
+          ? [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCU.',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'DIRECCIÓN',c:''},{l:'UBIC.',c:''},{l:'CON.',c:''},{l:'ACC.',c:''}]
+          : [{l:'CÓDIGO',c:'codigo'},{l:'MODELO',c:'modelo'},{l:'ESTADO',c:'estado'},{l:'EMPRESA',c:'empresa'},{l:'SUCURSAL',c:'sucursal'},{l:'AGENCIA',c:'agencia'},{l:'DIRECCIÓN',c:''},{l:'UBICACIÓN',c:''},{l:'CONEXIÓN',c:''},{l:'ACCIONES',c:''}]
         return (
       <div>
         {/* Header */}
@@ -976,17 +1014,55 @@ export default function Terminales() {
                       <span style={{fontSize:10,color:'#e8eeff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{t.empresa||'—'}</span>
                     </div>
                     <span style={{fontSize:10,color:'#7b8db0',fontFamily:'monospace',alignSelf:'center'}}>{t.sucursal||'—'}</span>
-                    <span style={{fontSize:10,color:t.agencia?'#7b8db0':'#3d4f73',fontStyle:t.agencia?'normal':'italic',alignSelf:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,display:'block'}}>{t.agencia||'Sin agencia'}</span>
+                    <div style={{alignSelf:'center',display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
+                      <span style={{fontSize:10,color:t.agencia?'#7b8db0':'#3d4f73',fontStyle:t.agencia?'normal':'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,flex:1}}>{t.agencia||'Sin agencia'}</span>
+                      {t.agencia&&(
+                        <a href="/agencias" onClick={e=>e.stopPropagation()}
+                          title="Ver agencia"
+                          style={{width:16,height:16,borderRadius:3,background:'rgba(124,92,252,0.15)',border:'1px solid rgba(124,92,252,0.3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,textDecoration:'none'}}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#7c5cfc" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Dirección */}
+                    {(() => {
+                      const ag = agencias.find((a:any)=>a._id===t.agencia_id||a.id_sub===t.id_sub)
+                      const dir = ag?.direccion||''
+                      return (
+                        <span title={dir} style={{fontSize:9,color:dir?'#7b8db0':'#3d4f73',alignSelf:'center',
+                          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,fontStyle:dir?'normal':'italic'}}>
+                          {dir||'—'}
+                        </span>
+                      )
+                    })()}
+
+                    {/* Ubicación (lat,lng) */}
+                    {(() => {
+                      const ag = agencias.find((a:any)=>a._id===t.agencia_id||a.id_sub===t.id_sub)
+                      const lat = ag?.lat, lng = ag?.lng
+                      return lat&&lng ? (
+                        <a href={`https://maps.google.com/?q=${lat},${lng}`} target="_blank" rel="noreferrer"
+                          onClick={e=>e.stopPropagation()}
+                          style={{fontSize:8,color:'#4f8ef7',fontFamily:'monospace',alignSelf:'center',
+                            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,textDecoration:'none'}}>
+                          📍{Number(lat).toFixed(4)},{Number(lng).toFixed(4)}
+                        </a>
+                      ) : (
+                        <span style={{fontSize:9,color:'#3d4f73',alignSelf:'center',fontStyle:'italic'}}>—</span>
+                      )
+                    })()}
 
                     {/* Conexión WAM */}
                     {(() => {
                       const on = isOnline(t)
                       return (
-                        <div style={{alignSelf:'center',display:'flex',alignItems:'center',gap:4}}>
+                        <div style={{alignSelf:'center',display:'flex',alignItems:'center',gap:3}}>
                           <div style={{width:6,height:6,borderRadius:'50%',background:on?'#00e5a0':'#3d4f73',
-                            boxShadow:on?'0 0 6px #00e5a060':undefined,flexShrink:0}}/>
-                          <span style={{fontSize:8,color:on?'#00e5a0':'#3d4f73',fontFamily:'monospace',fontWeight:600}}>
-                            {on?'Encendida':'Desconect.'}
+                            boxShadow:on?'0 0 5px #00e5a060':undefined,flexShrink:0}}/>
+                          <span style={{fontSize:8,color:on?'#00e5a0':'#3d4f73',fontFamily:'monospace',fontWeight:600,
+                            whiteSpace:'nowrap' as const}}>
+                            {on?'Conectada':'Desconect.'}
                           </span>
                         </div>
                       )

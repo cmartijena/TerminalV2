@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useAuth } from '../store/auth'
 import { useDB } from '../store/db'
 import { useTerminalOps } from '../store/terminalOps'
+import { useWAMStatus as _useWAMStatus } from '../store/wamStatus'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
@@ -712,6 +713,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }: {
 export default function Terminales() {
   const user = useAuth(s => s.user)
   const { terminales, agencias, empresas, loaded, loadAll } = useDB()
+  const wam = _useWAMStatus()
 
   const rol        = user?.rol||'TECNICO'
   const isAdmin    = ['ADMINISTRADOR','DIRECTIVO'].includes(rol)
@@ -741,8 +743,21 @@ export default function Terminales() {
 
   const reload = useCallback(async()=>{ await loadAll(); setMAcc(null); setMNueva(false); setMEdit(null) },[loadAll])
 
-  // Estado WAM simulado (basado en agencia_id y estado ACTIVO)
-  const isOnline = (t:any) => (t.estado as string)==='ACTIVO' && !!t.agencia_id
+  // Cargar estado WAM al montar y refrescar cada 60s
+  const fetchWAMFn = wam.fetch
+  useEffect(()=>{ fetchWAMFn(); const id=setInterval(fetchWAMFn,60_000); return ()=>clearInterval(id) },[fetchWAMFn])
+
+  // Estado WAM real: conectada = idle o active en EGM
+  const isOnline = (t:any) => {
+    if (wam.loaded && wam.terminals.length > 0) return wam.isConnected(t.codigo)
+    // Fallback si WAM no carga: ACTIVO con agencia
+    return (t.estado as string)==='ACTIVO' && !!t.agencia_id
+  }
+  const getWAMState = (t:any): 'active'|'idle'|'offline' => {
+    if (wam.loaded && wam.terminals.length > 0) return wam.getStatus(t.codigo) as any
+    if ((t.estado as string)==='ACTIVO' && !!t.agencia_id) return 'idle'
+    return 'offline'
+  }
 
   // Auto-scroll al expandir
   useEffect(()=>{
@@ -761,9 +776,10 @@ export default function Terminales() {
     const base = filtEst ? visibles.filter(t=>(t.estado as string)===filtEst) : visibles
     const modCount: Record<string,number> = {}
     base.forEach(t=>{ if(t.modelo) modCount[t.modelo]=(modCount[t.modelo]||0)+1 })
-    // WAM stats — conectadas = ACTIVO con agencia
-    const conectadas = visibles.filter(t=>(t.estado as string)==='ACTIVO' && !!t.agencia_id).length
-    const desconect  = visibles.filter(t=>(t.estado as string)==='ACTIVO' && !t.agencia_id).length
+    // WAM stats — conectadas/desconectadas según datos reales EGM
+    const productivas = visibles.filter(t=>(t.estado as string)==='ACTIVO')
+    const conectadas = productivas.filter(t=>wam.isConnected(t.codigo)).length
+    const desconect  = productivas.length - conectadas
     return { est:r, modCount, total:visibles.length, conectadas, desconect }
   },[visibles, filtEst])
 
@@ -793,7 +809,6 @@ export default function Terminales() {
   const handleSort = (col:string)=>setSort(s=>({col,asc:s.col===col?!s.asc:true}))
   const handleCardEst = (key:string)=>{ setFiltEst(filtEst===key?null:key); setFiltMod(null); setPagina(1); setOpenId(null) }
   const handleCardMod = (m:string) =>{ setFiltMod(filtMod===m?null:m); setPagina(1); setOpenId(null) }
-  const handleDetalle = (id:string)=>{ setOpenId(openId===id?null:id) }
 
   const empColorFn = (n:string)=>{ const i=empresas.findIndex(e=>e.nombre===n); return EMP_COLS[i>=0?i%EMP_COLS.length:0] }
 
@@ -999,11 +1014,8 @@ export default function Terminales() {
 
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <div style={{width:6,height:6,borderRadius:'50%',background:em.color,flexShrink:0}}/>
-                      <span onClick={e=>{e.stopPropagation();handleDetalle(t._id||'')}}
-                        style={{fontSize:10,fontWeight:700,color:isOpen?'#4f8ef7':'#00e5a0',fontFamily:'monospace',
-                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const,
-                        cursor:'pointer',textDecoration:isOpen?'underline':'none',
-                        textDecorationColor:'#4f8ef750'}}>{t.codigo}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:isOpen?'#4f8ef7':'#00e5a0',fontFamily:'monospace',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>{t.codigo}</span>
                     </div>
                     <span style={{fontSize:10,fontWeight:700,color:mc,fontFamily:'monospace',alignSelf:'center'}}>{t.modelo||'—'}</span>
                     <div style={{alignSelf:'center'}}>
@@ -1053,17 +1065,16 @@ export default function Terminales() {
                       )
                     })()}
 
-                    {/* Conexión WAM */}
+                    {/* Conexión WAM real */}
                     {(() => {
-                      const on = isOnline(t)
+                      const wst = getWAMState(t)
+                      const col = wst==='active'?'#00e5a0':wst==='idle'?'#4f8ef7':'#3d4f73'
+                      const lbl = wst==='active'?'Activa':wst==='idle'?'Conectada':'Desconect.'
+                      const glow= wst!=='offline'?`0 0 5px ${col}60`:undefined
                       return (
                         <div style={{alignSelf:'center',display:'flex',alignItems:'center',gap:3}}>
-                          <div style={{width:6,height:6,borderRadius:'50%',background:on?'#00e5a0':'#3d4f73',
-                            boxShadow:on?'0 0 5px #00e5a060':undefined,flexShrink:0}}/>
-                          <span style={{fontSize:8,color:on?'#00e5a0':'#3d4f73',fontFamily:'monospace',fontWeight:600,
-                            whiteSpace:'nowrap' as const}}>
-                            {on?'Conectada':'Desconect.'}
-                          </span>
+                          <div style={{width:6,height:6,borderRadius:'50%',background:col,boxShadow:glow,flexShrink:0}}/>
+                          <span style={{fontSize:8,color:col,fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap' as const}}>{lbl}</span>
                         </div>
                       )
                     })()}

@@ -1,15 +1,15 @@
 import { create } from 'zustand'
 import { WAM_API_URL, WAM_API_SECRET } from '../lib/config'
 
-// Estado WAM de cada terminal según el EGM
 export interface WAMTerminal {
-  machine_id: string   // equivale al codigo en TerminalOS (BOXELG-E0011 etc)
-  status: 'idle' | 'active' | 'offline' | string
+  machine_id: string
+  status: 'idle' | 'active' | 'off' | 'maintenance' | string
+  content_status?: string
+  terminal_status?: string
   game?: string
   balance?: number
   free_balance?: number
   pos?: string
-  operator?: string
 }
 
 interface WAMStore {
@@ -18,8 +18,10 @@ interface WAMStore {
   loading: boolean
   lastFetch: number
   fetch: () => Promise<void>
-  getStatus: (codigo: string) => 'idle' | 'active' | 'offline'
-  isConnected: (codigo: string) => boolean
+  // Retorna el estado WAM real o null si no hay datos
+  getStatus: (codigo: string) => 'active' | 'idle' | 'off' | 'maintenance' | null
+  // true = conectada (idle|active), false = desconectada (off|maintenance), null = sin datos WAM
+  getConexion: (codigo: string) => boolean | null
 }
 
 export const useWAMStatus = create<WAMStore>((set, get) => ({
@@ -30,22 +32,20 @@ export const useWAMStatus = create<WAMStore>((set, get) => ({
 
   fetch: async () => {
     const { loading, lastFetch } = get()
-    // No refetch si fue hace menos de 30s
     if (loading || (Date.now() - lastFetch < 30_000)) return
-
     set({ loading: true })
     try {
       const base   = WAM_API_URL.replace(/\/$/, '')
       const secret = encodeURIComponent(WAM_API_SECRET)
-      
-      // Intentar /api/terminals primero, luego /api/machines, luego /api/hoy con terminals
       let terminals: WAMTerminal[] = []
-      
+
+      // Endpoints a probar en orden
       const endpoints = [
         `${base}/api/terminals?secret=${secret}`,
         `${base}/api/machines?secret=${secret}`,
         `${base}/api/egm/terminals?secret=${secret}`,
-        `${base}/api/status/terminals?secret=${secret}`,
+        `${base}/api/terminal/list?secret=${secret}`,
+        `${base}/api/status?secret=${secret}`,
       ]
 
       for (const url of endpoints) {
@@ -53,33 +53,27 @@ export const useWAMStatus = create<WAMStore>((set, get) => ({
           const r = await fetch(url)
           if (!r.ok) continue
           const d = await r.json()
-          
+          if (d?.error) continue
+
+          const normalize = (t: any): WAMTerminal => ({
+            machine_id:      (t.machine_id || t.alias || t.Alias || t.id || t.code || '').trim().toUpperCase(),
+            status:          (t.content_status || t.status || t.terminal_status || t.state || 'off').toLowerCase(),
+            content_status:  t.content_status || '',
+            terminal_status: t.terminal_status || t.TerminalStatus || '',
+            game:            t.game || t.Game || t.game_name || '',
+            balance:         t.balance ?? t.Balance ?? 0,
+            free_balance:    t.free_balance ?? t.FreeBalance ?? 0,
+            pos:             t.pos || t.POS || '',
+          })
+
+          // Array directo
           if (Array.isArray(d) && d.length > 0) {
-            terminals = d.map((t: any) => ({
-              machine_id:   t.machine_id || t.alias || t.id || t.code || '',
-              status:       t.status || t.terminal_status || t.state || 'offline',
-              game:         t.game || t.game_name || '',
-              balance:      t.balance ?? t.Balance ?? 0,
-              free_balance: t.free_balance ?? t.FreeBalance ?? 0,
-              pos:          t.pos || t.POS || '',
-              operator:     t.operator || '',
-            }))
-            break
+            terminals = d.map(normalize); break
           }
-          
-          // Si viene como objeto con key 'terminals' o 'machines'
-          const raw = d.terminals || d.machines || d.data || d.results
+          // Objeto con subarray
+          const raw = d.terminals || d.machines || d.data || d.results || d.items
           if (Array.isArray(raw) && raw.length > 0) {
-            terminals = raw.map((t: any) => ({
-              machine_id:   t.machine_id || t.alias || t.id || t.code || '',
-              status:       t.status || t.terminal_status || t.state || 'offline',
-              game:         t.game || '',
-              balance:      t.balance ?? 0,
-              free_balance: t.free_balance ?? 0,
-              pos:          t.pos || '',
-              operator:     t.operator || '',
-            }))
-            break
+            terminals = raw.map(normalize); break
           }
         } catch { continue }
       }
@@ -91,21 +85,27 @@ export const useWAMStatus = create<WAMStore>((set, get) => ({
   },
 
   getStatus: (codigo) => {
-    const { terminals } = get()
-    if (!terminals.length) return 'offline'
-    const t = terminals.find(t =>
-      t.machine_id?.toUpperCase() === codigo?.toUpperCase() ||
-      t.machine_id?.replace(/-/g,'')?.toUpperCase() === codigo?.replace(/-/g,'')?.toUpperCase()
-    )
-    if (!t) return 'offline'
-    const s = (t.status || '').toLowerCase()
-    if (s === 'active' || s === 'playing' || s === 'in_use') return 'active'
-    if (s === 'idle') return 'idle'
-    return 'offline'
+    const { terminals, loaded } = get()
+    // Si no se cargó aún, no hay datos
+    if (!loaded) return null
+    // Si el API cargó pero no devolvió terminales, sin datos
+    if (!terminals.length) return null
+
+    const norm = (s: string) => s.replace(/[-_\s]/g, '').toUpperCase()
+    const t = terminals.find(t => norm(t.machine_id) === norm(codigo))
+    // Terminal no encontrada en WAM = apagada/desconocida
+    if (!t) return 'off'
+
+    const s = t.status.toLowerCase()
+    if (s === 'idle' || s === 'idle_event') return 'idle'
+    if (s === 'active' || s === 'playing' || s === 'in_game' || s === 'in_use') return 'active'
+    if (s === 'maintenance' || s === 'maint' || s === 'maint_off') return 'maintenance'
+    return 'off'
   },
 
-  isConnected: (codigo) => {
-    const s = get().getStatus(codigo)
-    return s === 'idle' || s === 'active'
+  getConexion: (codigo) => {
+    const st = get().getStatus(codigo)
+    if (st === null) return null          // sin datos WAM
+    return st === 'idle' || st === 'active'  // true=conectada, false=desconectada
   },
 }))

@@ -278,9 +278,9 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }:{
   const empCol   = EMP_COLS[empIdx>=0?empIdx%EMP_COLS.length:0]
   const estDet   = EST[term.estado as string]||{color:'#3d4f73',bg:'#141d35',label:term.estado,desc:''}
   const stC      = estDet.color
-  const wst      = wam.getStatus(term.codigo)
-  const wCol     = wst==='active'?'#00e5a0':wst==='idle'?'#4f8ef7':'#3d4f73'
-  const wLbl     = wst==='active'?'Activa · WAM':wst==='idle'?'Conectada · idle':'Desconectada'
+  const cx       = wam.getConexion(term.codigo)
+  const wCol     = cx===true?'#00e5a0':cx===false?'#f72564':'#3d4f73'
+  const wLbl     = cx===true?'Conectada · WAM':cx===false?'Desconectada':'Sin datos WAM'
 
   const hist = [
     { ev:'Estado cambiado',  det:estDet.label,                    c:'#00e5a0', ts:'Hoy 09:14',  by:'Admin'   },
@@ -444,11 +444,9 @@ export default function Terminales() {
   // ── WAM fetch ──────────────────────────────────────────────────────────────
   const fetchWAMFn = wam.fetch
   useEffect(()=>{ fetchWAMFn(); const id=setInterval(fetchWAMFn,60_000); return ()=>clearInterval(id) },[fetchWAMFn])
-  const isOnline = useCallback((t:any)=>{
-    if(wam.loaded&&wam.terminals.length>0) return wam.isConnected(t.codigo)
-    return (t.estado as string)==='ACTIVO'&&!!t.agencia_id
-  },[wam])
-  const getWAMSt = useCallback((t:any)=>wam.loaded&&wam.terminals.length>0?wam.getStatus(t.codigo):((t.estado as string)==='ACTIVO'&&!!t.agencia_id?'idle':'offline') as any,[wam])
+  // conexion: true=conectada, false=desconectada, null=sin datos WAM (no asumir nada)
+  const getConexion = useCallback((t:any) => wam.getConexion(t.codigo), [wam])
+  const isOnline    = useCallback((t:any) => getConexion(t) === true, [getConexion])
 
   // ── Estado UI ──────────────────────────────────────────────────────────────
   const [filtEmp,  setFiltEmp]  = useState<string|null>(isFranq?miEmpNom:null) // null = todas
@@ -487,8 +485,8 @@ export default function Terminales() {
       if(q&&!t.codigo?.toLowerCase().includes(q)&&!t.agencia?.toLowerCase().includes(q)&&!t.empresa?.toLowerCase().includes(q)&&!t.modelo?.toLowerCase().includes(q)) return false
       if(filtEst&&(t.estado as string)!==filtEst) return false
       if(filtMod&&t.modelo!==filtMod) return false
-      if(filtWAM==='on'&&!isOnline(t)) return false
-      if(filtWAM==='off'&&isOnline(t)) return false
+      if(filtWAM==='on'&&getConexion(t)!==true) return false
+      if(filtWAM==='off'&&getConexion(t)!==false) return false
       return true
     })
   },[base,buscar,filtEst,filtMod,filtWAM,isOnline])
@@ -500,7 +498,7 @@ export default function Terminales() {
   const kpis = useMemo(()=>{
     const src = filtEmp?base:visibles
     const activo=src.filter(t=>(t.estado as string)==='ACTIVO').length
-    const conn=src.filter(t=>isOnline(t)).length
+    const conn=src.filter(t=>getConexion(t)===true).length
     const desconn=src.filter(t=>(t.estado as string)==='ACTIVO').length-conn
     const mods:Record<string,number>={}
     src.forEach(t=>{if(t.modelo)mods[t.modelo]=(mods[t.modelo]||0)+1})
@@ -597,7 +595,7 @@ export default function Terminales() {
               <div style={{position:'absolute',inset:4,borderRadius:'50%',background:'#00e5a0'}}/>
               <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.6);opacity:0}}`}</style>
             </div>
-            <div><div style={{fontSize:30,fontWeight:900,color:'#00e5a0',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.conn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:3}}>CONECTADAS WAM</div></div>
+            <div><div style={{fontSize:30,fontWeight:900,color:'#00e5a0',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.conn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:3}}>CONECTADAS WAM{!wam.loaded?' · cargando...':wam.terminals.length===0?' · sin datos':''}</div></div>
           </div>
           <div style={{background:'#0f1629',borderBottom:'3px solid #3d4f73',padding:'12px 18px',display:'flex',alignItems:'center',gap:12}}>
             <div style={{width:20,height:20,borderRadius:'50%',background:'#1e2d4a',border:'2px solid #3d4f73',flexShrink:0}}/>
@@ -665,9 +663,7 @@ export default function Terminales() {
             const em    = EST[t.estado as string]||{color:'#3d4f73',bg:'rgba(61,79,115,0.2)',label:t.estado}
             const ec    = empColorFn(t.empresa)
             const mc    = MOD_COL[t.modelo]||'#4f8ef7'
-            const wst   = getWAMSt(t)
-            const wc    = wst==='active'?'#00e5a0':wst==='idle'?'#4f8ef7':'#3d4f73'
-            const wl    = wst==='active'?'Activa':wst==='idle'?'Conectada':'Desconect.'
+
             const isSel = openId===t._id
             const agRow = agencias.find((a:any)=>a._id===t.agencia_id||a.id_sub===t.id_sub)
 
@@ -711,10 +707,17 @@ export default function Terminales() {
                 </div>
 
                 {/* WAM */}
-                <div style={{display:'flex',alignItems:'center',gap:4}}>
-                  <div style={{width:6,height:6,borderRadius:'50%',background:wc,flexShrink:0}}/>
-                  <span style={{fontSize:8,color:wc,fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}}>{wl}</span>
-                </div>
+                {(() => {
+                  const cx = getConexion(t)
+                  const wc2 = cx===true?'#00e5a0':cx===false?'#f72564':'#3d4f73'
+                  const wl2 = cx===true?'Conectada':cx===false?'Desconectada':'Sin datos'
+                  return (
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:wc2,flexShrink:0}}/>
+                      <span style={{fontSize:8,color:wc2,fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}}>{wl2}</span>
+                    </div>
+                  )
+                })()}
 
                 {/* Acciones */}
                 {isAdmin&&(

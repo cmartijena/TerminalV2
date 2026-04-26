@@ -111,11 +111,14 @@ export const useWAMStatus = create<WAMStore>((set, get) => ({
   },
 
   getConexion: (codigo) => {
-    const { statusMap, loaded } = get()
-    if (!loaded) return null
+    const { statusMap, loaded, error } = get()
+    if (!loaded) return null     // Aún cargando
+    // Si el WAM API falló completamente, sin datos
+    if (error && Object.keys(statusMap).length === 0) return null
     const key = normCodigo(codigo || '')
     const t   = statusMap[key]
-    if (!t) return null          // Sin datos en WAM
-    return t.online              // true=conectada, false=desconectada
+    // Si no está en el map y ya cargamos datos WAM = terminal apagada/offline
+    if (!t) return false
+    return t.online              // true=conectada(idle|active), false=apagada(off)
   },
 }))

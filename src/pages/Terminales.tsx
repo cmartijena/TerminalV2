@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { useDB } from '../store/db'
 import { useTerminalOps } from '../store/terminalOps'
-import { useWAMStatus as _useWAMStatus, syncWAMFromAPI } from '../store/wamStatus'
+import { useWAMStatus as _useWAMStatus } from '../store/wamStatus'
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
 const EMP_COLS = ['#00e5a0','#4f8ef7','#7c5cfc','#f7931a','#00d4ff']
@@ -278,16 +278,10 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }:{
   const empCol   = EMP_COLS[empIdx>=0?empIdx%EMP_COLS.length:0]
   const estDet   = EST[term.estado as string]||{color:'#3d4f73',bg:'#141d35',label:term.estado,desc:''}
   const stC      = estDet.color
-  const cx       = wam.getConexion(term.codigo)
-  const wSt      = wam.getStatus(term.codigo)
-  const wCol     = cx===true?'#00e5a0':cx===false?'#f72564':'#3d4f73'
-  const wLbl     = wSt==='active'?'Activa · WAM':wSt==='idle'?'Conectada · idle':wSt==='maintenance'?'Mantenimiento':wSt==='off'?'Desconectada':'Sin datos WAM'
-  const [updatingWAM, setUpdWAM] = useState(false)
-  const updateWAMFn = async (status: 'idle'|'active'|'off'|'maintenance'|null) => {
-    setUpdWAM(true)
-    await wam.update(term._id||term.id, term.codigo, status)
-    setUpdWAM(false)
-  }
+  const cx   = wam.getConexion(term.codigo)
+  const wSt  = wam.getStatus(term.codigo)
+  const wCol = wSt==='active'?'#00e5a0':wSt==='idle'?'#4f8ef7':cx===false?'#f72564':'#3d4f73'
+  const wLbl = wSt==='active'?'Activa · WAM':wSt==='idle'?'Conectada · idle':cx===false?'Desconectada':'Sin datos WAM'
 
   const hist = [
     { ev:'Estado cambiado',  det:estDet.label,                    c:'#00e5a0', ts:'Hoy 09:14',  by:'Admin'   },
@@ -418,19 +412,7 @@ function DrawerSciFi({ term, agencias, empresas, isAdmin, onAccion, onClose }:{
           {isAdmin&&(
             <div style={{padding:'10px 18px',borderTop:`1px solid ${stC}18`,flexShrink:0,background:'rgba(5,8,16,0.8)'}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><div style={{width:12,height:1,background:'#7b8db0'}}/><span style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',fontWeight:700,letterSpacing:1.5}}>ACCIONES</span></div>
-              {/* Estado WAM manual */}
-              <div style={{marginBottom:8,padding:'8px 10px',background:'#141d35',border:'1px solid #1e2d4a'}}>
-                <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',marginBottom:6,letterSpacing:1}}>ESTADO WAM · actualizar manual</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
-                  {([['idle','Conectada · idle','#4f8ef7'],['active','Activa','#00e5a0'],['off','Desconectada','#f72564'],['maintenance','Mantenimiento','#f7931a']] as const).map(([v,l,col])=>(
-                    <button key={v} onClick={()=>updateWAMFn(v)} disabled={updatingWAM||wSt===v}
-                      style={{padding:'6px',background:wSt===v?`${col}20`:'transparent',border:`1px solid ${wSt===v?col+'60':'#1e2d4a'}`,color:wSt===v?col:'#7b8db0',fontSize:9,cursor:wSt===v||updatingWAM?'default':'pointer',fontFamily:'monospace',fontWeight:wSt===v?700:400}}>
-                      {wSt===v?'✓ ':''}{l}
-                    </button>
-                  ))}
-                </div>
-                {cx===null&&<div style={{marginTop:5,fontSize:8,color:'#3d4f73',fontFamily:'monospace'}}>Sin datos — actualiza manualmente o agrega columna wam_status en Supabase</div>}
-              </div>
+
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
                 <button onClick={()=>onAccion('editar')} style={{padding:'8px',background:'rgba(124,92,252,0.08)',border:'1px solid rgba(124,92,252,0.3)',color:'#7c5cfc',fontSize:10,fontWeight:700,cursor:'pointer'}}>Editar</button>
                 <button onClick={()=>onAccion('asignar')} style={{padding:'8px',background:'rgba(0,229,160,0.08)',border:'1px solid rgba(0,229,160,0.3)',color:'#00e5a0',fontSize:10,fontWeight:700,cursor:'pointer'}}>{agDet?'Reasignar':'Asignar'}</button>
@@ -462,36 +444,15 @@ export default function Terminales() {
   const visibles = useMemo(()=>isFranq?terminales.filter(t=>t.empresa===miEmpNom):terminales,[terminales,isFranq,miEmpNom])
 
   // ── WAM fetch ──────────────────────────────────────────────────────────────
+  // Cargar datos de Supabase si no están cargados aún
+  useEffect(()=>{ loadAll() },[loadAll])
+
   const fetchWAMFn = wam.fetch
-  const updateWAM  = wam.update
   useEffect(()=>{
-    // Leer de Supabase
     fetchWAMFn()
-    // Intentar sincronizar desde WAM API real (por si el endpoint aparece)
-    syncWAMFromAPI().then(map=>{
-      if(Object.keys(map).length>0) {
-        // Si el WAM API tiene datos, actualizar Supabase masivamente
-        Object.entries(map).forEach(([codigo,status])=>{
-          const t = terminales.find(t=>t.codigo?.toUpperCase()===codigo)
-          if(t?._id) updateWAM(t._id, codigo, status)
-        })
-        fetchWAMFn() // Refrescar desde Supabase
-      }
-    })
-    const id = setInterval(()=>{
-      fetchWAMFn()
-      syncWAMFromAPI().then(map=>{
-        if(Object.keys(map).length>0){
-          Object.entries(map).forEach(([codigo,status])=>{
-            const t = terminales.find(t=>t.codigo?.toUpperCase()===codigo)
-            if(t?._id) updateWAM(t._id,codigo,status)
-          })
-          fetchWAMFn()
-        }
-      })
-    }, 60_000)
+    const id = setInterval(fetchWAMFn, 60_000)
     return ()=>clearInterval(id)
-  },[fetchWAMFn, updateWAM, terminales])
+  },[fetchWAMFn])
   // conexion: true=conectada, false=desconectada, null=sin datos WAM
   const getConexion = useCallback((t:any) => wam.getConexion(t.codigo), [wam])
   const isOnline    = useCallback((t:any) => getConexion(t) === true, [getConexion])
@@ -700,7 +661,7 @@ export default function Terminales() {
             ))}
           </div>
 
-          {!loaded?(
+          {(!loaded&&!terminales.length)?(
             <div style={{padding:'50px',textAlign:'center',fontSize:11,color:'#3d4f73',fontFamily:'monospace'}}>Cargando terminales...</div>
           ):filtradas.length===0?(
             <div style={{padding:'50px',textAlign:'center'}}>
@@ -756,13 +717,16 @@ export default function Terminales() {
 
                 {/* WAM */}
                 {(() => {
-                  const cx = getConexion(t)
-                  const wc2 = cx===true?'#00e5a0':cx===false?'#f72564':'#3d4f73'
-                  const wl2 = cx===true?'Conectada':cx===false?'Desconectada':'Sin datos'
+                  const wst = wam.getStatus(t.codigo)
+                  const cx  = getConexion(t)
+                  const wc  = wst==='active'?'#00e5a0':wst==='idle'?'#4f8ef7':cx===false?'#f72564':'#3d4f73'
+                  const wl  = wst==='active'?'Activa':wst==='idle'?'Conectada':cx===false?'Desconectada':'Sin datos'
                   return (
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
-                      <div style={{width:6,height:6,borderRadius:'50%',background:wc2,flexShrink:0}}/>
-                      <span style={{fontSize:8,color:wc2,fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}}>{wl2}</span>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:wc,
+                        boxShadow:(wst==='active'||wst==='idle')?`0 0 5px ${wc}80`:undefined,
+                        flexShrink:0}}/>
+                      <span style={{fontSize:8,color:wc,fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}}>{wl}</span>
                     </div>
                   )
                 })()}

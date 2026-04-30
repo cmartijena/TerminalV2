@@ -411,7 +411,7 @@ export default function Dashboard() {
           },
         ]
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 11, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 11, marginBottom: 12 }}>
             {kpiList.map((k, i) => (
               <div key={i} className={`card ${k.cls}`} style={{ padding: '13px 15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 }}>

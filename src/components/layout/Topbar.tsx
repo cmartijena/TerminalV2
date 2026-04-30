@@ -42,7 +42,7 @@ export default function Topbar({
   }
 
   return (
-    <header className="h-[52px] bg-surface border-b border-border flex items-center px-4 gap-3 shrink-0 relative" style={{ zIndex: 10000 }}>
+    <header className="h-[48px] bg-surface border-b border-border flex items-center px-3 gap-2 sm:gap-3 sm:px-4 shrink-0 relative" style={{ zIndex: 10000 }}>
       {/* Toggle sidebar */}
       <button
         onClick={onToggleSidebar}

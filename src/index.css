@@ -138,3 +138,233 @@ body {
 .grad-text-green { background: linear-gradient(135deg, #00e5a0, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .grad-text-purple { background: linear-gradient(135deg, #7c5cfc, #f72585); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .grad-text-red { background: linear-gradient(135deg, #f72564, #f7931a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE SYSTEM — TerminalOS v2
+   Breakpoints: xs<480 sm<640 md<768 lg<1024 xl<1280 2xl+
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --sidebar-w:      208px;
+  --topbar-h:       48px;
+  --panel-lat-w:    176px;
+  --drawer-w:       32%;
+  --font-sm:        10px;
+  --font-base:      11px;
+  --font-md:        12px;
+  --font-mono:      10px;
+  --kpi-num:        28px;
+  --kpi-num-lg:     32px;
+  --gap-sm:         6px;
+  --gap-md:         10px;
+  --pad-cell:       7px 12px;
+  --pad-section:    10px 14px;
+}
+
+/* ── Large desktops 1440+ ── */
+@media (min-width: 1440px) {
+  :root {
+    --sidebar-w:    220px;
+    --panel-lat-w:  190px;
+    --drawer-w:     30%;
+    --font-sm:      11px;
+    --font-base:    12px;
+    --font-mono:    10px;
+    --kpi-num:      32px;
+    --kpi-num-lg:   38px;
+    --gap-md:       12px;
+  }
+}
+
+/* ── Standard desktops 1024-1439 ── */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  :root {
+    --sidebar-w:    200px;
+    --panel-lat-w:  168px;
+    --drawer-w:     33%;
+    --kpi-num:      26px;
+  }
+}
+
+/* ── Small laptops / tablets landscape 768-1023 ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --sidebar-w:    56px;   /* sidebar colapsado automático */
+    --panel-lat-w:  140px;
+    --drawer-w:     42%;
+    --font-sm:      9px;
+    --font-base:    10px;
+    --font-mono:    9px;
+    --kpi-num:      22px;
+    --kpi-num-lg:   26px;
+    --gap-sm:       4px;
+    --gap-md:       8px;
+    --pad-cell:     5px 10px;
+  }
+}
+
+/* ── Tablets portrait 640-767 ── */
+@media (min-width: 640px) and (max-width: 767px) {
+  :root {
+    --sidebar-w:    0px;
+    --panel-lat-w:  0px;
+    --drawer-w:     60%;
+    --font-sm:      9px;
+    --font-base:    10px;
+    --kpi-num:      20px;
+    --gap-sm:       4px;
+    --pad-cell:     5px 8px;
+  }
+}
+
+/* ── Mobile <640 ── */
+@media (max-width: 639px) {
+  :root {
+    --sidebar-w:    0px;
+    --panel-lat-w:  0px;
+    --drawer-w:     100%;
+    --font-sm:      9px;
+    --font-base:    10px;
+    --kpi-num:      18px;
+    --gap-sm:       3px;
+    --pad-cell:     4px 8px;
+  }
+}
+
+/* ── Responsive helpers ── */
+.r-hide-sm  { display: block; }
+.r-hide-md  { display: block; }
+.r-show-sm  { display: none; }
+
+@media (max-width: 1023px) { .r-hide-md { display: none !important; } }
+@media (max-width: 767px)  { .r-hide-sm { display: none !important; } .r-show-sm { display: block; } }
+
+/* ── Fluid text ── */
+.r-text-xs  { font-size: clamp(7px,  0.6vw, 9px);  }
+.r-text-sm  { font-size: clamp(8px,  0.75vw, 11px); }
+.r-text-md  { font-size: clamp(9px,  0.85vw, 12px); }
+.r-text-lg  { font-size: clamp(10px, 1vw,   14px);  }
+.r-text-xl  { font-size: clamp(12px, 1.2vw, 18px);  }
+.r-text-kpi { font-size: clamp(18px, 2.2vw, 36px);  }
+
+/* ── Fluid grid ── */
+.r-grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--gap-md);
+}
+.r-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--gap-md);
+}
+
+/* ── Tabla responsive ── */
+.r-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.r-table-wrap::-webkit-scrollbar { height: 3px; }
+
+/* Modales responsive */
+.r-modal-box {
+  width: min(460px, 94vw);
+  max-height: min(90vh, 800px);
+  overflow-y: auto;
+}
+.r-modal-box-lg {
+  width: min(600px, 96vw);
+  max-height: min(92vh, 900px);
+  overflow-y: auto;
+}
+
+/* ── Sidebar collapse automático ── */
+@media (max-width: 1023px) {
+  .sidebar-auto-collapse {
+    width: 56px !important;
+  }
+  .sidebar-auto-collapse .sidebar-label,
+  .sidebar-auto-collapse .sidebar-badge,
+  .sidebar-auto-collapse .sidebar-footer {
+    display: none !important;
+  }
+}
+@media (max-width: 767px) {
+  .sidebar-auto-collapse {
+    position: fixed;
+    left: -100%;
+    z-index: 300;
+    width: 200px !important;
+    height: 100vh;
+    transition: left 0.2s ease;
+  }
+  .sidebar-auto-collapse.sidebar-open {
+    left: 0;
+  }
+  .sidebar-auto-collapse .sidebar-label,
+  .sidebar-auto-collapse .sidebar-badge,
+  .sidebar-auto-collapse .sidebar-footer {
+    display: block !important;
+  }
+}
+
+/* Panel lateral de empresas responsive */
+@media (max-width: 1023px) {
+  .panel-lat-empresas {
+    width: 130px !important;
+  }
+}
+@media (max-width: 767px) {
+  .panel-lat-empresas {
+    display: none !important;
+  }
+}
+
+/* KPIs responsive */
+.kpi-grid-terminales {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  gap: 1px;
+}
+@media (max-width: 1023px) {
+  .kpi-grid-terminales {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpi-grid-terminales > *:nth-child(4) { display: none; }
+}
+@media (max-width: 639px) {
+  .kpi-grid-terminales {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Drawer responsive */
+@media (max-width: 1023px) {
+  .drawer-sci-fi { width: 50% !important; }
+}
+@media (max-width: 767px) {
+  .drawer-sci-fi { width: 100% !important; top: 0 !important; }
+}
+
+/* Columnas tabla terminales responsive */
+.t-col-empresa  { }
+.t-col-sucursal { }
+.t-col-direccion{ }
+.t-col-acciones { }
+
+@media (max-width: 1280px) { .t-col-direccion { display: none; } }
+@media (max-width: 1023px) { .t-col-sucursal  { display: none; } }
+@media (max-width: 767px)  { .t-col-empresa   { display: none; } }
+
+/* Dashboard cards responsive */
+@media (max-width: 1023px) {
+  .dash-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
+}
+@media (max-width: 639px) {
+  .dash-grid-4 { grid-template-columns: 1fr !important; }
+}
+
+/* Fix overflow en mobile */
+@media (max-width: 767px) {
+  main { overflow-x: hidden; }
+  .r-table-wrap { font-size: 9px; }
+}

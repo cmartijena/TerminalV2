@@ -72,7 +72,7 @@ const IconSolicitudes = () => (
     <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
   </svg>
 )
-export default function Sidebar({ collapsed }: { collapsed: boolean }) {
+export default function Sidebar({ collapsed, mobileOpen, isMobile }: { collapsed: boolean; mobileOpen?: boolean; isMobile?: boolean }) {
   const user = useAuth(s => s.user)
   const unread = useNotifs(s => s.unreadCount)
   const rol = user?.rol || 'TECNICO'
@@ -117,14 +117,27 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   ]
 
   return (
-    <aside className={`bg-surface border-r border-border flex flex-col transition-all duration-200 ${collapsed ? 'w-14' : 'w-52'} shrink-0`}>
+    <aside
+      className={`bg-surface border-r border-border flex flex-col transition-all duration-200 shrink-0`}
+      style={{
+        width: isMobile ? (mobileOpen ? 208 : 0) : collapsed ? 56 : 208,
+        position: isMobile ? 'fixed' : 'relative',
+        left: isMobile && !mobileOpen ? -208 : 0,
+        top: isMobile ? 48 : 0,
+        bottom: 0,
+        zIndex: isMobile ? 300 : 'auto',
+        overflow: 'hidden',
+        transition: 'width 0.2s ease, left 0.2s ease',
+        flexShrink: 0,
+      }}
+    >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 h-[52px] border-b border-border shrink-0">
         <div className="w-6 h-6 rounded-md bg-ac/10 border border-ac/30 flex items-center justify-center shrink-0">
           <div className="w-2 h-2 rounded-full bg-ac" />
         </div>
         {!collapsed && (
-          <span className="text-sm font-semibold text-tx tracking-wide">TerminalOS</span>
+          <span className="text-sm font-semibold text-tx tracking-wide sidebar-label">TerminalOS</span>
         )}
       </div>
 

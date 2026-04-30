@@ -31,7 +31,7 @@ function exportCSV(rows: any[], nombre: string) {
 const inp: React.CSSProperties  = { background:'#141d35', border:'1px solid #1e2d4a', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#e8eeff', outline:'none', fontFamily:'system-ui' }
 const sel: React.CSSProperties  = { ...inp, appearance:'none' as any, cursor:'pointer' }
 const modal: React.CSSProperties = { position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }
-const mbox = (w=460): React.CSSProperties => ({ background:'#0f1629', border:'1px solid #1e2d4a', borderRadius:14, padding:'22px 24px', width:w, maxWidth:'94vw', maxHeight:'90vh', overflowY:'auto' })
+const mbox = (w=460): React.CSSProperties => ({ background:'#0f1629', border:'1px solid #1e2d4a', borderRadius:14, padding:'clamp(14px,2vw,22px) clamp(14px,2vw,24px)', width:`min(${w}px, 94vw)`, maxWidth:'94vw', maxHeight:'min(90vh,800px)', overflowY:'auto' })
 
 // ════════════════ MODAL EXPORT ════════════════
 function ModalExport({ todos, onClose }:{ todos:any[]; onClose:()=>void }) {
@@ -389,7 +389,7 @@ function DrawerSciFi({ term, agencias, empresas, terminales, isAdmin, onAccion, 
   return (
     <>
       <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(5,8,16,0.65)',zIndex:200}}/>
-      <div style={{position:'fixed',top:'48px',right:0,bottom:0,width:'32%',zIndex:201,
+      <div style={{position:'fixed',top:'48px',right:0,bottom:0,width:'clamp(300px,32%,520px)',zIndex:201,
         clipPath:'polygon(32px 0,100% 0,100% 100%,0 100%,0 32px)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
         <div style={{position:'absolute',inset:0,background:'#0d1120'}}/>
         <div style={{position:'absolute',inset:0,pointerEvents:'none',borderLeft:`1px solid ${stC}55`,borderTop:`1px solid ${stC}55`}}/>
@@ -634,7 +634,7 @@ export default function Terminales() {
     <div style={{display:'flex',background:'#0a0e1a',minHeight:'100vh',color:'#e8eeff'}}>
 
       {/* ══ PANEL LATERAL ══ */}
-      <div style={{width:176,flexShrink:0,background:'#0f1629',borderRight:'1px solid #1e2d4a',display:'flex',flexDirection:'column',overflowY:'auto'}}>
+      <div style={{width:'clamp(130px,12vw,190px)',flexShrink:0,background:'#0f1629',borderRight:'1px solid #1e2d4a',display:'flex',flexDirection:'column',overflowY:'auto'}}>
         {/* Botones ARRIBA */}
         <div style={{padding:'8px',borderBottom:'1px solid #1e2d4a',display:'flex',flexDirection:'column',gap:5}}>
           {isAdmin&&<button onClick={()=>setMNueva(true)}
@@ -696,10 +696,10 @@ export default function Terminales() {
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
         {/* KPIs */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:1,flexShrink:0}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:1,flexShrink:0}}>
           <div style={{background:'#0f1629',borderBottom:'3px solid #f7931a',padding:'11px 18px',display:'flex',alignItems:'center',gap:12}}>
             <span style={{fontSize:18,color:'#f7931a'}}>⚡</span>
-            <div><div style={{fontSize:28,fontWeight:900,color:'#f7931a',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.activo:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>EN PRODUCCIÓN</div></div>
+            <div><div style={{fontSize:'clamp(18px,2.2vw,32px)',fontWeight:900,color:'#f7931a',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.activo:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>EN PRODUCCIÓN</div></div>
           </div>
           <div style={{background:'#0f1629',borderBottom:'3px solid #00e5a0',padding:'11px 18px',display:'flex',alignItems:'center',gap:12}}>
             <div style={{position:'relative',width:18,height:18,flexShrink:0}}>
@@ -707,11 +707,11 @@ export default function Terminales() {
               <div style={{position:'absolute',inset:4,borderRadius:'50%',background:'#00e5a0'}}/>
               <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.6);opacity:0}}`}</style>
             </div>
-            <div><div style={{fontSize:28,fontWeight:900,color:'#00e5a0',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.conn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>CONECTADAS WAM</div></div>
+            <div><div style={{fontSize:'clamp(18px,2.2vw,32px)',fontWeight:900,color:'#00e5a0',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.conn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>CONECTADAS WAM</div></div>
           </div>
           <div style={{background:'#0f1629',borderBottom:'3px solid #3d4f73',padding:'11px 18px',display:'flex',alignItems:'center',gap:12}}>
             <div style={{width:18,height:18,borderRadius:'50%',background:'#1e2d4a',border:'2px solid #3d4f73',flexShrink:0}}/>
-            <div><div style={{fontSize:28,fontWeight:900,color:'#3d4f73',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.desconn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>DESCONECTADAS</div></div>
+            <div><div style={{fontSize:'clamp(18px,2.2vw,32px)',fontWeight:900,color:'#3d4f73',fontFamily:'monospace',lineHeight:1}}>{loaded?kpis.desconn:'—'}</div><div style={{fontSize:7,color:'#7b8db0',fontFamily:'monospace',letterSpacing:1.5,marginTop:2}}>DESCONECTADAS</div></div>
           </div>
           <div style={{background:'#0f1629',borderBottom:'3px solid #1e2d4a',padding:'9px 14px',display:'flex',flexDirection:'column',justifyContent:'center',gap:4,minWidth:170}}>
             <div style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1,marginBottom:2}}>{filtEmp||'FLOTA TOTAL'} · MODELOS</div>
@@ -727,7 +727,7 @@ export default function Terminales() {
         </div>
 
         {/* Toolbar */}
-        <div style={{display:'flex',gap:7,padding:'7px 12px',background:'#0f1629',borderBottom:'1px solid #1e2d4a',alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:'clamp(4px,0.5vw,8px)',padding:'6px 10px',background:'#0f1629',borderBottom:'1px solid #1e2d4a',alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
           <div style={{flex:1,minWidth:160,position:'relative'}}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#3d4f73" strokeWidth="2" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input value={buscar} onChange={e=>{setBuscar(e.target.value);setPagina(1);setOpenId(null)}} placeholder="Código, modelo, estado, empresa, agencia..." style={{...inp,width:'100%',paddingLeft:27}}/>
@@ -753,9 +753,9 @@ export default function Terminales() {
         {/* Tabla */}
         <div style={{flex:1,overflowY:'auto'}}>
           {/* Header */}
-          <div style={{display:'grid',gridTemplateColumns:'150px 100px 138px 1fr 1fr 85px 100px',padding:'6px 14px',background:'#050810',borderBottom:'1px solid #1e2d4a',position:'sticky',top:0,zIndex:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'minmax(120px,160px) minmax(80px,110px) minmax(100px,145px) minmax(100px,1fr) minmax(120px,1fr) minmax(70px,90px) minmax(80px,100px)',padding:'5px 12px',background:'#050810',borderBottom:'1px solid #1e2d4a',position:'sticky',top:0,zIndex:10}}>
             {['CÓDIGO','MODELO','ESTADO','EMPRESA · SUCURSAL','AGENCIA · DIRECCIÓN','WAM','ACCIONES'].map((h,i)=>(
-              <span key={i} style={{fontSize:7,color:'#3d4f73',fontFamily:'monospace',letterSpacing:1.2}}>{h}</span>
+              <span key={i} style={{fontSize:'clamp(6px,0.6vw,8px)',color:'#3d4f73',fontFamily:'monospace',letterSpacing:1.2}}>{h}</span>
             ))}
           </div>
 
@@ -778,8 +778,8 @@ export default function Terminales() {
 
             return (
               <div key={t._id} onClick={()=>setOpenId(prev=>prev===t._id?null:(t._id||''))}
-                style={{display:'grid',gridTemplateColumns:'150px 100px 138px 1fr 1fr 85px 100px',
-                  padding:'8px 14px',borderBottom:`1px solid ${isSel?'rgba(79,142,247,0.2)':'#141d35'}`,
+                style={{display:'grid',gridTemplateColumns:'minmax(120px,160px) minmax(80px,110px) minmax(100px,145px) minmax(100px,1fr) minmax(120px,1fr) minmax(70px,90px) minmax(80px,100px)',
+                  padding:'6px 12px',borderBottom:`1px solid ${isSel?'rgba(79,142,247,0.2)':'#141d35'}`,
                   borderLeft:isSel?'3px solid #4f8ef7':'3px solid transparent',
                   background:isSel?'rgba(79,142,247,0.05)':'transparent',
                   cursor:'pointer',transition:'background .08s',alignItems:'center'}}
@@ -830,7 +830,7 @@ export default function Terminales() {
 
         {/* Paginación */}
         {filtradas.length>0&&(
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 14px',borderTop:'1px solid #141d35',background:'#050810',flexShrink:0}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 12px',borderTop:'1px solid #141d35',background:'#050810',flexShrink:0,flexWrap:'wrap'}}>
             <span style={{fontSize:8,color:'#3d4f73',fontFamily:'monospace'}}>{filtradas.length} resultado{filtradas.length!==1?'s':''} · pág {pagina}/{pagTotal}</span>
             <div style={{display:'flex',gap:4}}>
               {[['«',()=>setPagina(1)],['‹',()=>setPagina(p=>Math.max(1,p-1))],
